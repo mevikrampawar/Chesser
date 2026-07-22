@@ -19,7 +19,6 @@ export function OpeningPanel({ data, analyzing, error, moveCount, moveHistory, t
     : 'bg-white border-gray-200 shadow-sm'
   const textClass = theme === 'dark' ? 'text-white' : 'text-gray-900'
   const subTextClass = theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-  const mutedClass = theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
   const labelClass = theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
 
   if (moveCount === 0) {
@@ -30,7 +29,7 @@ export function OpeningPanel({ data, analyzing, error, moveCount, moveHistory, t
           Play Some Moves
         </h2>
         <p className={`${subTextClass} text-xs sm:text-sm`}>
-          Make moves on the board and the AI will identify the opening and provide coaching.
+          Make moves on the board and the AI will identify the opening.
         </p>
       </div>
     )
@@ -57,15 +56,10 @@ export function OpeningPanel({ data, analyzing, error, moveCount, moveHistory, t
       {data && (
         <>
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] sm:text-xs font-mono bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
-                {data.opening.eco}
-              </span>
-              {data.lichessOpening && (
-                <span className={`text-[9px] sm:text-[10px] ${mutedClass}`}>Verified by Lichess</span>
-              )}
-            </div>
-            <h2 className={`text-lg sm:text-xl font-bold ${textClass}`}>{data.opening.name}</h2>
+            <span className="text-[10px] sm:text-xs font-mono bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
+              {data.opening.eco}
+            </span>
+            <h2 className={`text-lg sm:text-xl font-bold mt-1 ${textClass}`}>{data.opening.name}</h2>
           </div>
 
           <StatsBar stats={data.stats} theme={theme} />
@@ -79,7 +73,7 @@ export function OpeningPanel({ data, analyzing, error, moveCount, moveHistory, t
             </p>
           </div>
 
-          {data.opening.keyIdeas && (
+          {data.opening.keyIdeas && data.opening.keyIdeas !== 'N/A' && (
             <div>
               <h4 className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wide mb-2 ${labelClass}`}>
                 Key Ideas
@@ -95,7 +89,7 @@ export function OpeningPanel({ data, analyzing, error, moveCount, moveHistory, t
             </div>
           )}
 
-          {data.opening.commonContinuations && (
+          {data.opening.commonContinuations && data.opening.commonContinuations !== 'N/A' && (
             <div>
               <h4 className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wide mb-2 ${labelClass}`}>
                 Common Continuations

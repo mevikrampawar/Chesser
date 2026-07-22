@@ -1,22 +1,45 @@
-import type { OpeningData, OpeningResult } from '../types'
+import type { OpeningData, OpeningResult, TopMove, OpeningStats } from '../types'
 import { chatCompletion } from './llm'
-import { fetchOpeningFromLichess } from './lichess'
 import { buildOpeningPrompt } from '../utils/prompts'
 
-function parseOpeningJSON(raw: string): OpeningResult | null {
+function parseOpeningJSON(raw: string): OpeningData | null {
   try {
     const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
     const parsed = JSON.parse(cleaned)
-    if (parsed.name && parsed.eco) {
-      return {
-        name: parsed.name,
-        eco: parsed.eco,
-        explanation: parsed.explanation || '',
-        keyIdeas: parsed.keyIdeas || '',
-        commonContinuations: parsed.commonContinuations || '',
+
+    if (!parsed.name || !parsed.eco) return null
+
+    const opening: OpeningResult = {
+      name: parsed.name,
+      eco: parsed.eco,
+      explanation: parsed.explanation || '',
+      keyIdeas: parsed.keyIdeas || '',
+      commonContinuations: parsed.commonContinuations || '',
+    }
+
+    let stats: OpeningStats | null = null
+    if (parsed.stats && typeof parsed.stats.white === 'number') {
+      stats = {
+        white: Math.round(parsed.stats.white * 10) / 10,
+        draws: Math.round(parsed.stats.draws * 10) / 10,
+        black: Math.round(parsed.stats.black * 10) / 10,
       }
     }
-    return null
+
+    let topMoves: TopMove[] = []
+    if (Array.isArray(parsed.topMoves)) {
+      topMoves = parsed.topMoves
+        .filter((m: Record<string, unknown>) => m.san && typeof m.white === 'number')
+        .slice(0, 5)
+        .map((m: Record<string, unknown>) => ({
+          san: String(m.san),
+          white: Math.round(Number(m.white)),
+          draws: Math.round(Number(m.draws)),
+          black: Math.round(Number(m.black)),
+        }))
+    }
+
+    return { opening, stats, topMoves }
   } catch {
     return null
   }
@@ -27,58 +50,33 @@ export async function identifyOpening(uciMoves: string[]): Promise<OpeningData> 
     return {
       opening: {
         name: 'Starting Position',
-        eco: '\u2014',
+        eco: '---',
         explanation: 'Play some moves to identify the opening.',
         keyIdeas: '',
         commonContinuations: '',
       },
       stats: null,
       topMoves: [],
-      lichessOpening: null,
     }
   }
 
-  const [llmRaw, lichessData] = await Promise.all([
-    chatCompletion([
-      { role: 'system', content: 'You are a chess opening encyclopedia. Respond only with valid JSON.' },
-      { role: 'user', content: buildOpeningPrompt(uciMoves.join(',')) },
-    ]),
-    fetchOpeningFromLichess(uciMoves),
+  const raw = await chatCompletion([
+    { role: 'system', content: 'You are a chess opening encyclopedia. Respond only with valid JSON.' },
+    { role: 'user', content: buildOpeningPrompt(uciMoves.join(',')) },
   ])
 
-  let opening = parseOpeningJSON(llmRaw)
-  if (!opening) {
-    opening = {
+  const result = parseOpeningJSON(raw)
+  if (result) return result
+
+  return {
+    opening: {
       name: 'Unable to identify',
-      eco: '\u2014',
+      eco: '---',
       explanation: 'Could not identify this opening.',
       keyIdeas: '',
       commonContinuations: '',
-    }
+    },
+    stats: null,
+    topMoves: [],
   }
-
-  if (lichessData?.opening) {
-    opening.eco = lichessData.opening.eco
-    opening.name = lichessData.opening.name
-  }
-
-  const topMoves = lichessData?.moves || []
-
-  let stats = null
-  if (topMoves.length > 0) {
-    const totalW = topMoves.reduce((s, m) => s + m.white, 0)
-    const totalD = topMoves.reduce((s, m) => s + m.draws, 0)
-    const totalB = topMoves.reduce((s, m) => s + m.black, 0)
-    const total = totalW + totalD + totalB
-    if (total > 0) {
-      stats = {
-        white: Math.round((totalW / total) * 1000) / 10,
-        draws: Math.round((totalD / total) * 1000) / 10,
-        black: Math.round((totalB / total) * 1000) / 10,
-        totalGames: total,
-      }
-    }
-  }
-
-  return { opening, stats, topMoves, lichessOpening: lichessData?.opening || null }
 }

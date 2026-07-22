@@ -40,7 +40,7 @@ export function StatsBar({ stats, theme }: Props) {
       <p className={`text-[9px] sm:text-[10px] mt-1 text-center ${
         theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
       }`}>
-        Based on {stats.totalGames.toLocaleString()} master games
+        Approximate win rates
       </p>
     </div>
   )
