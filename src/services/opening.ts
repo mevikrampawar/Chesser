@@ -7,7 +7,6 @@ function parseOpeningJSON(raw: string): OpeningResult | null {
   try {
     const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
     const parsed = JSON.parse(cleaned)
-
     if (parsed.name && parsed.eco) {
       return {
         name: parsed.name,
@@ -23,16 +22,12 @@ function parseOpeningJSON(raw: string): OpeningResult | null {
   }
 }
 
-export async function identifyOpening(
-  uciMoves: string[],
-): Promise<OpeningData> {
-  const moveStr = uciMoves.join(',')
-
+export async function identifyOpening(uciMoves: string[]): Promise<OpeningData> {
   if (uciMoves.length === 0) {
     return {
       opening: {
         name: 'Starting Position',
-        eco: '—',
+        eco: '\u2014',
         explanation: 'Play some moves to identify the opening.',
         keyIdeas: '',
         commonContinuations: '',
@@ -43,26 +38,20 @@ export async function identifyOpening(
     }
   }
 
-  const prompt = buildOpeningPrompt(moveStr)
-
   const [llmRaw, lichessData] = await Promise.all([
     chatCompletion([
-      {
-        role: 'system',
-        content: 'You are a chess opening encyclopedia. Respond only with valid JSON.',
-      },
-      { role: 'user', content: prompt },
+      { role: 'system', content: 'You are a chess opening encyclopedia. Respond only with valid JSON.' },
+      { role: 'user', content: buildOpeningPrompt(uciMoves.join(',')) },
     ]),
     fetchOpeningFromLichess(uciMoves),
   ])
 
   let opening = parseOpeningJSON(llmRaw)
-
   if (!opening) {
     opening = {
       name: 'Unable to identify',
-      eco: '—',
-      explanation: 'The AI could not identify this opening from the given moves.',
+      eco: '\u2014',
+      explanation: 'Could not identify this opening.',
       keyIdeas: '',
       commonContinuations: '',
     }
@@ -76,26 +65,20 @@ export async function identifyOpening(
   const topMoves = lichessData?.moves || []
 
   let stats = null
-  if (lichessData && topMoves.length > 0) {
-    const totalWhite = topMoves.reduce((s, m) => s + m.white, 0)
-    const totalDraws = topMoves.reduce((s, m) => s + m.draws, 0)
-    const totalBlack = topMoves.reduce((s, m) => s + m.black, 0)
-    const total = totalWhite + totalDraws + totalBlack
-
+  if (topMoves.length > 0) {
+    const totalW = topMoves.reduce((s, m) => s + m.white, 0)
+    const totalD = topMoves.reduce((s, m) => s + m.draws, 0)
+    const totalB = topMoves.reduce((s, m) => s + m.black, 0)
+    const total = totalW + totalD + totalB
     if (total > 0) {
       stats = {
-        white: Math.round((totalWhite / total) * 1000) / 10,
-        draws: Math.round((totalDraws / total) * 1000) / 10,
-        black: Math.round((totalBlack / total) * 1000) / 10,
+        white: Math.round((totalW / total) * 1000) / 10,
+        draws: Math.round((totalD / total) * 1000) / 10,
+        black: Math.round((totalB / total) * 1000) / 10,
         totalGames: total,
       }
     }
   }
 
-  return {
-    opening,
-    stats,
-    topMoves,
-    lichessOpening: lichessData?.opening || null,
-  }
+  return { opening, stats, topMoves, lichessOpening: lichessData?.opening || null }
 }
