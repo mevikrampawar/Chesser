@@ -6,13 +6,19 @@ interface Props {
 }
 
 export function ThemeToggle({ theme, onToggle }: Props) {
+  const isDark = theme === 'dark'
+
   return (
     <button
       onClick={onToggle}
-      className="bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-900 dark:text-white text-xs sm:text-sm py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg transition-colors"
-      title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+      className={`text-xs sm:text-sm py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg transition-all ${
+        isDark
+          ? 'bg-white/5 hover:bg-white/10 text-cyan-400 border border-cyan-500/20'
+          : 'bg-gray-100 hover:bg-gray-200 text-amber-600 border border-gray-200'
+      }`}
+      title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
     >
-      {theme === 'dark' ? (
+      {isDark ? (
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <circle cx="12" cy="12" r="5" />
           <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />

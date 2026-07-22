@@ -22,10 +22,12 @@ export function SavedOpenings({
   openingName,
   openingEco,
   onLoadMoves,
+  theme,
 }: Props) {
   const [saved, setSaved] = useState<SavedOpening[]>([])
   const [saving, setSaving] = useState(false)
   const [firestoreError, setFirestoreError] = useState(false)
+  const isDark = theme === 'dark'
 
   const refresh = useCallback(async () => {
     try {
@@ -72,56 +74,88 @@ export function SavedOpenings({
 
   if (firestoreError) {
     return (
-      <div className="bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-3 sm:p-4 transition-colors">
-        <h4 className="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+      <div className={`rounded-xl p-3 sm:p-4 border transition-colors ${
+        isDark
+          ? 'bg-white/[0.02] border-white/[0.06]'
+          : 'bg-white border-gray-200 shadow-sm'
+      }`}>
+        <h4 className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wider mb-2 ${
+          isDark ? 'text-gray-500' : 'text-gray-400'
+        }`}>
           Saved Openings
         </h4>
-        <p className="text-[10px] sm:text-xs text-gray-400">
-          Cloud save unavailable. Create a Firestore database in your Firebase console to enable saving.
+        <p className={`text-[10px] sm:text-xs ${
+          isDark ? 'text-gray-500' : 'text-gray-400'
+        }`}>
+          Cloud save unavailable. Create a Firestore database in your Firebase console.
         </p>
       </div>
     )
   }
 
   return (
-    <div className="bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-3 sm:p-4 transition-colors">
+    <div className={`rounded-xl p-3 sm:p-4 border transition-colors ${
+      isDark
+        ? 'bg-white/[0.02] border-white/[0.06]'
+        : 'bg-white border-gray-200 shadow-sm'
+    }`}>
       <div className="flex items-center justify-between mb-3">
-        <h4 className="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        <h4 className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wider ${
+          isDark ? 'text-gray-500' : 'text-gray-400'
+        }`}>
           Saved Openings
         </h4>
         <button
           onClick={handleSave}
           disabled={moveHistory.length === 0 || saving}
-          className="bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:cursor-not-allowed text-white text-[10px] sm:text-xs py-1 px-2 sm:px-3 rounded transition-colors"
+          className={`text-[10px] sm:text-xs py-1 px-2 sm:px-3 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
+            isDark
+              ? 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/20'
+              : 'bg-blue-500 hover:bg-blue-400 text-white'
+          }`}
         >
           {saving ? 'Saving...' : 'Save'}
         </button>
       </div>
 
       {saved.length === 0 ? (
-        <p className="text-gray-400 text-[10px] sm:text-xs">No saved openings yet.</p>
+        <p className={`text-[10px] sm:text-xs ${
+          isDark ? 'text-gray-600' : 'text-gray-400'
+        }`}>No saved openings yet.</p>
       ) : (
         <div className="space-y-1 max-h-48 sm:max-h-64 overflow-y-auto">
           {saved.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between bg-gray-200 dark:bg-gray-800/50 rounded px-2 sm:px-3 py-1.5 sm:py-2 hover:bg-gray-300 dark:hover:bg-gray-800 transition-colors group"
+              className={`flex items-center justify-between rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 transition-all group ${
+                isDark
+                  ? 'bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.04]'
+                  : 'bg-gray-50 hover:bg-gray-100 border border-gray-100'
+              }`}
             >
               <button
                 onClick={() => onLoadMoves(item.moves)}
                 className="text-left flex-1 min-w-0"
               >
-                <span className="text-[10px] sm:text-xs font-mono text-blue-500 dark:text-blue-400 mr-1 sm:mr-2">
+                <span className={`text-[10px] sm:text-xs font-mono mr-1 sm:mr-2 ${
+                  isDark ? 'text-cyan-400' : 'text-blue-500'
+                }`}>
                   {item.eco}
                 </span>
-                <span className="text-xs sm:text-sm text-gray-900 dark:text-white truncate">{item.name}</span>
-                <span className="text-[9px] sm:text-[10px] text-gray-400 ml-1 sm:ml-2">
+                <span className={`text-xs sm:text-sm truncate ${
+                  isDark ? 'text-white' : 'text-gray-900'
+                }`}>{item.name}</span>
+                <span className={`text-[9px] sm:text-[10px] ml-1 sm:ml-2 ${
+                  isDark ? 'text-gray-600' : 'text-gray-400'
+                }`}>
                   ({item.moves.length})
                 </span>
               </button>
               <button
                 onClick={() => handleDelete(item.id)}
-                className="text-gray-400 hover:text-red-500 text-xs ml-1 sm:ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                className={`text-xs ml-1 sm:ml-2 opacity-0 group-hover:opacity-100 transition-opacity ${
+                  isDark ? 'text-gray-600 hover:text-red-400' : 'text-gray-400 hover:text-red-500'
+                }`}
               >
                 X
               </button>

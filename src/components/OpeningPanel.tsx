@@ -14,21 +14,30 @@ interface Props {
 }
 
 export function OpeningPanel({ data, analyzing, error, moveCount, moveHistory, theme }: Props) {
-  const cardClass = theme === 'dark'
-    ? 'bg-gray-900 border-gray-800'
-    : 'bg-white border-gray-200 shadow-sm'
-  const textClass = theme === 'dark' ? 'text-white' : 'text-gray-900'
-  const subTextClass = theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-  const labelClass = theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+  const isDark = theme === 'dark'
 
   if (moveCount === 0) {
     return (
-      <div className={`${cardClass} border rounded-xl p-4 sm:p-6 text-center transition-colors`}>
-        <div className="text-4xl mb-3">♟</div>
-        <h2 className={`text-base sm:text-lg font-semibold mb-2 ${textClass}`}>
+      <div className={`rounded-xl p-4 sm:p-6 text-center border transition-colors ${
+        isDark
+          ? 'bg-white/[0.02] border-white/[0.06]'
+          : 'bg-white border-gray-200 shadow-sm'
+      }`}>
+        <div className={`inline-flex w-16 h-16 rounded-2xl items-center justify-center text-3xl mb-4 ${
+          isDark
+            ? 'bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 text-cyan-400/60'
+            : 'bg-gray-100 text-gray-400'
+        }`}>
+          ♟
+        </div>
+        <h2 className={`text-base sm:text-lg font-semibold mb-2 ${
+          isDark ? 'text-white' : 'text-gray-900'
+        }`}>
           Play Some Moves
         </h2>
-        <p className={`${subTextClass} text-xs sm:text-sm`}>
+        <p className={`text-xs sm:text-sm ${
+          isDark ? 'text-gray-400' : 'text-gray-600'
+        }`}>
           Make moves on the board and the AI will identify the opening.
         </p>
       </div>
@@ -37,18 +46,36 @@ export function OpeningPanel({ data, analyzing, error, moveCount, moveHistory, t
 
   if (error) {
     return (
-      <div className="bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-xl p-4 sm:p-6">
-        <h3 className="text-red-600 dark:text-red-400 font-semibold mb-1 text-sm">Error</h3>
-        <p className="text-red-500 dark:text-red-300 text-xs sm:text-sm">{error}</p>
+      <div className={`rounded-xl p-4 sm:p-6 border ${
+        isDark
+          ? 'bg-red-500/10 border-red-500/20'
+          : 'bg-red-50 border-red-200'
+      }`}>
+        <h3 className={`font-semibold mb-1 text-sm ${
+          isDark ? 'text-red-400' : 'text-red-600'
+        }`}>Error</h3>
+        <p className={`text-xs sm:text-sm ${
+          isDark ? 'text-red-300' : 'text-red-500'
+        }`}>{error}</p>
       </div>
     )
   }
 
   return (
-    <div className={`${cardClass} border rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-5 transition-colors`}>
+    <div className={`rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-5 border transition-colors ${
+      isDark
+        ? 'bg-white/[0.02] border-white/[0.06]'
+        : 'bg-white border-gray-200 shadow-sm'
+    }`}>
       {analyzing && (
-        <div className="flex items-center gap-3 text-amber-500 dark:text-amber-400">
-          <div className="animate-spin w-4 h-4 border-2 border-amber-500 dark:border-amber-400 border-t-transparent rounded-full" />
+        <div className={`flex items-center gap-3 ${
+          isDark ? 'text-cyan-400' : 'text-amber-500'
+        }`}>
+          <div className={`animate-spin w-4 h-4 border-2 rounded-full ${
+            isDark
+              ? 'border-cyan-400 border-t-transparent'
+              : 'border-amber-500 border-t-transparent'
+          }`} />
           <span className="text-xs sm:text-sm font-medium">Analyzing opening...</span>
         </div>
       )}
@@ -56,32 +83,48 @@ export function OpeningPanel({ data, analyzing, error, moveCount, moveHistory, t
       {data && (
         <>
           <div>
-            <span className="text-[10px] sm:text-xs font-mono bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
+            <span className={`text-[10px] sm:text-xs font-mono px-2 py-0.5 rounded ${
+              isDark
+                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                : 'bg-blue-50 text-blue-600 border border-blue-100'
+            }`}>
               {data.opening.eco}
             </span>
-            <h2 className={`text-lg sm:text-xl font-bold mt-1 ${textClass}`}>{data.opening.name}</h2>
+            <h2 className={`text-lg sm:text-xl font-bold mt-1 ${
+              isDark ? 'text-white' : 'text-gray-900'
+            }`}>{data.opening.name}</h2>
           </div>
 
           <StatsBar stats={data.stats} theme={theme} />
 
           <div>
-            <h4 className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wide mb-2 ${labelClass}`}>
+            <h4 className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wider mb-2 ${
+              isDark ? 'text-gray-500' : 'text-gray-400'
+            }`}>
               About This Opening
             </h4>
-            <p className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} text-xs sm:text-sm leading-relaxed`}>
+            <p className={`text-xs sm:text-sm leading-relaxed ${
+              isDark ? 'text-gray-300' : 'text-gray-700'
+            }`}>
               {data.opening.explanation}
             </p>
           </div>
 
           {data.opening.keyIdeas && data.opening.keyIdeas !== 'N/A' && (
             <div>
-              <h4 className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wide mb-2 ${labelClass}`}>
+              <h4 className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wider mb-2 ${
+                isDark ? 'text-gray-500' : 'text-gray-400'
+              }`}>
                 Key Ideas
               </h4>
               <ul className="space-y-1">
                 {data.opening.keyIdeas.split(';').map((idea, i) => (
-                  <li key={i} className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} text-xs sm:text-sm flex gap-2`}>
-                    <span className="text-blue-500 dark:text-blue-400 mt-0.5 shrink-0">▸</span>
+                  <li key={i} className={`text-xs sm:text-sm flex gap-2 ${
+                    isDark ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    <span className={`mt-0.5 shrink-0 ${
+                      isDark ? 'text-cyan-400' : 'text-blue-500'
+                    }`}>▸</span>
                     <span>{idea.trim()}</span>
                   </li>
                 ))}
@@ -91,10 +134,14 @@ export function OpeningPanel({ data, analyzing, error, moveCount, moveHistory, t
 
           {data.opening.commonContinuations && data.opening.commonContinuations !== 'N/A' && (
             <div>
-              <h4 className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wide mb-2 ${labelClass}`}>
+              <h4 className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wider mb-2 ${
+                isDark ? 'text-gray-500' : 'text-gray-400'
+              }`}>
                 Common Continuations
               </h4>
-              <p className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} text-xs sm:text-sm font-mono`}>
+              <p className={`text-xs sm:text-sm font-mono ${
+                isDark ? 'text-gray-300' : 'text-gray-700'
+              }`}>
                 {data.opening.commonContinuations}
               </p>
             </div>

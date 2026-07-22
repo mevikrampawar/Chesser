@@ -45,8 +45,8 @@ function parseOpeningJSON(raw: string): OpeningData | null {
   }
 }
 
-export async function identifyOpening(uciMoves: string[]): Promise<OpeningData> {
-  if (uciMoves.length === 0) {
+export async function identifyOpening(sanMoves: string[]): Promise<OpeningData> {
+  if (sanMoves.length === 0) {
     return {
       opening: {
         name: 'Starting Position',
@@ -60,9 +60,13 @@ export async function identifyOpening(uciMoves: string[]): Promise<OpeningData> 
     }
   }
 
+  const movesText = sanMoves
+    .map((san, i) => (i % 2 === 0 ? `${Math.floor(i / 2) + 1}. ${san}` : san))
+    .join(' ')
+
   const raw = await chatCompletion([
-    { role: 'system', content: 'You are a chess opening encyclopedia. Respond only with valid JSON.' },
-    { role: 'user', content: buildOpeningPrompt(uciMoves.join(',')) },
+    { role: 'system', content: 'You are a chess opening encyclopedia. Respond only with valid JSON. No markdown.' },
+    { role: 'user', content: buildOpeningPrompt(movesText) },
   ])
 
   const result = parseOpeningJSON(raw)

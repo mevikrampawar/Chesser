@@ -1,9 +1,14 @@
+import type { Theme } from '../hooks/useTheme'
+
 interface Props {
   movesSan: string[]
+  theme: Theme
 }
 
-export function MoveHistory({ movesSan }: Props) {
+export function MoveHistory({ movesSan, theme }: Props) {
   if (movesSan.length === 0) return null
+
+  const isDark = theme === 'dark'
 
   const pairs: [string, string?][] = []
   for (let i = 0; i < movesSan.length; i += 2) {
@@ -12,19 +17,31 @@ export function MoveHistory({ movesSan }: Props) {
 
   return (
     <div>
-      <h4 className="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+      <h4 className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wider mb-2 ${
+        isDark ? 'text-gray-500' : 'text-gray-400'
+      }`}>
         Move History
       </h4>
-      <div className="bg-gray-200 dark:bg-gray-800/50 rounded-lg p-2 sm:p-3 max-h-32 sm:max-h-48 overflow-y-auto">
+      <div className={`rounded-lg p-2 sm:p-3 max-h-32 sm:max-h-48 overflow-y-auto ${
+        isDark ? 'bg-white/[0.02]' : 'bg-gray-50'
+      }`}>
         <table className="w-full text-xs sm:text-sm">
           <tbody>
             {pairs.map(([white, black], i) => (
-              <tr key={i} className="hover:bg-gray-300 dark:hover:bg-gray-800 rounded">
-                <td className="text-gray-400 w-6 sm:w-8 text-right pr-1 sm:pr-2 py-0.5 font-mono text-[10px] sm:text-xs">
+              <tr key={i} className={`rounded ${
+                isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-gray-100'
+              }`}>
+                <td className={`w-6 sm:w-8 text-right pr-1 sm:pr-2 py-0.5 font-mono text-[10px] sm:text-xs ${
+                  isDark ? 'text-gray-600' : 'text-gray-400'
+                }`}>
                   {i + 1}.
                 </td>
-                <td className="text-gray-900 dark:text-white font-mono py-0.5">{white}</td>
-                <td className="text-gray-600 dark:text-gray-300 font-mono py-0.5">{black || ''}</td>
+                <td className={`font-mono py-0.5 ${
+                  isDark ? 'text-white' : 'text-gray-900'
+                }`}>{white}</td>
+                <td className={`font-mono py-0.5 ${
+                  isDark ? 'text-gray-300' : 'text-gray-600'
+                }`}>{black || ''}</td>
               </tr>
             ))}
           </tbody>

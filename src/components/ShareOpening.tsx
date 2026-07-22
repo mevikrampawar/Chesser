@@ -8,9 +8,10 @@ interface Props {
   theme: Theme
 }
 
-export function ShareOpening({ moveHistory, openingName, openingEco }: Props) {
+export function ShareOpening({ moveHistory, openingName, openingEco, theme }: Props) {
   const [copied, setCopied] = useState(false)
   const [showShare, setShowShare] = useState(false)
+  const isDark = theme === 'dark'
 
   const buildShareUrl = useCallback(() => {
     const base = window.location.origin + window.location.pathname
@@ -55,30 +56,50 @@ export function ShareOpening({ moveHistory, openingName, openingEco }: Props) {
     <div className="relative">
       <button
         onClick={handleNativeShare}
-        className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-medium py-2 px-4 rounded-lg transition-colors"
+        className={`w-full text-xs sm:text-sm font-medium py-2 px-4 rounded-xl transition-all ${
+          isDark
+            ? 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/20'
+            : 'bg-blue-500 hover:bg-blue-400 text-white'
+        }`}
       >
         Share Opening
       </button>
 
       {showShare && (
-        <div className="absolute bottom-full left-0 right-0 mb-2 bg-gray-900 border border-gray-700 rounded-lg p-3 shadow-xl z-10">
-          <p className="text-gray-400 text-xs mb-2">Copy this link to share:</p>
+        <div className={`absolute bottom-full left-0 right-0 mb-2 rounded-xl p-3 shadow-xl z-10 ${
+          isDark
+            ? 'bg-[#0f0f17] border border-white/10'
+            : 'bg-white border border-gray-200 shadow-lg'
+        }`}>
+          <p className={`text-xs mb-2 ${
+            isDark ? 'text-gray-400' : 'text-gray-500'
+          }`}>Copy this link to share:</p>
           <div className="flex gap-2">
             <input
               readOnly
               value={buildShareUrl()}
-              className="flex-1 bg-gray-800 text-white text-xs px-3 py-2 rounded border border-gray-700 outline-none"
+              className={`flex-1 text-xs px-3 py-2 rounded-lg outline-none ${
+                isDark
+                  ? 'bg-white/5 text-white border border-white/10'
+                  : 'bg-gray-50 text-gray-900 border border-gray-200'
+              }`}
             />
             <button
               onClick={handleCopy}
-              className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded transition-colors shrink-0"
+              className={`text-xs px-3 py-2 rounded-lg transition-all shrink-0 ${
+                isDark
+                  ? 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400'
+                  : 'bg-blue-500 hover:bg-blue-400 text-white'
+              }`}
             >
               {copied ? '✓' : 'Copy'}
             </button>
           </div>
           <button
             onClick={() => setShowShare(false)}
-            className="absolute top-2 right-2 text-gray-500 hover:text-gray-300 text-xs"
+            className={`absolute top-2 right-2 text-xs ${
+              isDark ? 'text-gray-600 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'
+            }`}
           >
             ✕
           </button>
