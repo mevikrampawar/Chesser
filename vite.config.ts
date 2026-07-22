@@ -5,7 +5,4 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   base: '/Chesser/',
-  optimizeDeps: {
-    exclude: ['@mlc-ai/web-llm'],
-  },
 })

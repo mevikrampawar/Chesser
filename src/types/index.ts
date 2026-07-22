@@ -42,4 +42,4 @@ export interface OpeningData {
   lichessOpening: LichessOpening | null
 }
 
-export type LLMStatus = 'idle' | 'loading' | 'ready' | 'error'
+export type AppScreen = 'login' | 'apikey' | 'app'

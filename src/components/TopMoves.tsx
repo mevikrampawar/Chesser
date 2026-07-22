@@ -11,7 +11,7 @@ export function TopMoves({ moves }: Props) {
 
   return (
     <div>
-      <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+      <h4 className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
         Popular Continuations
       </h4>
       <div className="space-y-1">
@@ -23,22 +23,16 @@ export function TopMoves({ moves }: Props) {
           return (
             <div
               key={move.uci}
-              className="flex items-center gap-3 text-sm bg-gray-800/50 rounded px-3 py-1.5 hover:bg-gray-800 transition-colors"
+              className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm bg-gray-800/50 rounded px-2 sm:px-3 py-1.5 hover:bg-gray-800 transition-colors"
             >
-              <span className="font-mono font-semibold text-white w-14">
+              <span className="font-mono font-semibold text-white w-10 sm:w-14">
                 {move.san}
               </span>
               <div className="flex-1 h-1.5 bg-gray-700 rounded-full overflow-hidden flex">
-                <div
-                  className="bg-white"
-                  style={{ width: `${whitePct}%` }}
-                />
-                <div
-                  className="bg-gray-500"
-                  style={{ width: `${drawPct}%` }}
-                />
+                <div className="bg-white" style={{ width: `${whitePct}%` }} />
+                <div className="bg-gray-500" style={{ width: `${drawPct}%` }} />
               </div>
-              <span className="text-gray-400 text-xs w-20 text-right">
+              <span className="text-gray-400 text-[10px] sm:text-xs w-14 sm:w-20 text-right shrink-0">
                 {move.averageRating} avg
               </span>
             </div>

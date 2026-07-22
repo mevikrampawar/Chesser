@@ -12,15 +12,15 @@ export function MoveHistory({ movesSan }: Props) {
 
   return (
     <div>
-      <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+      <h4 className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
         Move History
       </h4>
-      <div className="bg-gray-800/50 rounded-lg p-3 max-h-48 overflow-y-auto">
-        <table className="w-full text-sm">
+      <div className="bg-gray-800/50 rounded-lg p-2 sm:p-3 max-h-32 sm:max-h-48 overflow-y-auto">
+        <table className="w-full text-xs sm:text-sm">
           <tbody>
             {pairs.map(([white, black], i) => (
               <tr key={i} className="hover:bg-gray-800 rounded">
-                <td className="text-gray-500 w-8 text-right pr-2 py-0.5 font-mono text-xs">
+                <td className="text-gray-500 w-6 sm:w-8 text-right pr-1 sm:pr-2 py-0.5 font-mono text-[10px] sm:text-xs">
                   {i + 1}.
                 </td>
                 <td className="text-white font-mono py-0.5">{white}</td>

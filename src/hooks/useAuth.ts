@@ -26,10 +26,7 @@ export function useAuth() {
       await signInWithPopup(auth, googleProvider)
     } catch (err) {
       const code = (err as { code?: string }).code
-      if (code === 'auth/popup-closed-by-user') {
-        // User closed popup - not an error
-        return
-      }
+      if (code === 'auth/popup-closed-by-user') return
       if (code === 'auth/popup-blocked') {
         setError('Popup was blocked. Please allow popups for this site.')
         return
