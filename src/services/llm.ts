@@ -29,13 +29,27 @@ export async function loadModel(
   return engine
 }
 
+// Sanitize input to prevent prompt injection
+function sanitizeInput(input: string): string {
+  return input
+    .replace(/[^\w\d\s,.\-]/g, '')
+    .slice(0, 500)
+    .trim()
+}
+
 export async function chatCompletion(
   messages: { role: string; content: string }[],
 ): Promise<string> {
   if (!engine) throw new Error('LLM engine not loaded. Call loadModel() first.')
 
+  // Sanitize all user inputs
+  const sanitizedMessages = messages.map((msg) => ({
+    ...msg,
+    content: msg.role === 'user' ? sanitizeInput(msg.content) : msg.content,
+  }))
+
   const response = await engine.chat.completions.create({
-    messages: messages as { role: 'system' | 'user' | 'assistant'; content: string }[],
+    messages: sanitizedMessages as { role: 'system' | 'user' | 'assistant'; content: string }[],
     temperature: 0.3,
     max_tokens: 1024,
     response_format: { type: 'json_object' },

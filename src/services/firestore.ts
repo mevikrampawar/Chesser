@@ -6,7 +6,7 @@ import {
   doc,
   query,
   orderBy,
-  type DocumentData,
+  limit,
 } from 'firebase/firestore'
 import { db } from './firebase'
 
@@ -18,16 +18,38 @@ export interface SavedOpening {
   savedAt: number
 }
 
-const COLLECTION = 'savedOpenings'
+const MAX_SAVED_OPENINGS = 50
+const MAX_MOVES_PER_OPENING = 100
 
 export async function saveOpening(
   userId: string,
   data: { name: string; eco: string; moves: string[] },
 ): Promise<string> {
+  if (!userId || typeof userId !== 'string') {
+    throw new Error('Invalid user ID')
+  }
+
+  // Validate and sanitize input
+  const name = data.name.slice(0, 200).trim()
+  const eco = data.eco.slice(0, 10).trim()
+  const moves = data.moves.slice(0, MAX_MOVES_PER_OPENING)
+
+  if (!name || !eco) {
+    throw new Error('Invalid opening data')
+  }
+
+  // Check limit
+  const existing = await getSavedOpenings(userId)
+  if (existing.length >= MAX_SAVED_OPENINGS) {
+    throw new Error(`Maximum ${MAX_SAVED_OPENINGS} saved openings reached`)
+  }
+
   const docRef = await addDoc(
-    collection(db, 'users', userId, COLLECTION),
+    collection(db, 'users', userId, 'savedOpenings'),
     {
-      ...data,
+      name,
+      eco,
+      moves,
       savedAt: Date.now(),
     },
   )
@@ -35,17 +57,25 @@ export async function saveOpening(
 }
 
 export async function getSavedOpenings(userId: string): Promise<SavedOpening[]> {
+  if (!userId || typeof userId !== 'string') {
+    return []
+  }
+
   const q = query(
-    collection(db, 'users', userId, COLLECTION),
+    collection(db, 'users', userId, 'savedOpenings'),
     orderBy('savedAt', 'desc'),
+    limit(MAX_SAVED_OPENINGS),
   )
   const snapshot = await getDocs(q)
   return snapshot.docs.map((d) => ({
     id: d.id,
-    ...(d.data() as DocumentData),
+    ...d.data(),
   })) as SavedOpening[]
 }
 
 export async function deleteOpening(userId: string, openingId: string): Promise<void> {
-  await deleteDoc(doc(db, 'users', userId, COLLECTION, openingId))
+  if (!userId || !openingId) {
+    throw new Error('Invalid IDs')
+  }
+  await deleteDoc(doc(db, 'users', userId, 'savedOpenings', openingId))
 }

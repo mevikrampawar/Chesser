@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can only read/write their own data
+    match /users/{userId}/{document=**} {
+      // Users can only access their own saved openings
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Validate document structure
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasAll(['name', 'eco', 'moves', 'savedAt'])
+        && request.resource.data.name is string
+        && request.resource.data.eco is string
+        && request.resource.data.moves is list
+        && request.resource.data.savedAt is number;
+
+      allow update: if request.auth != null
+        && request.auth.uid == userId;
+
+      allow delete: if request.auth != null
+        && request.auth.uid == userId;
+    }
+
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
