@@ -5,6 +5,7 @@ import {
   deleteOpening,
   type SavedOpening,
 } from '../services/firestore'
+import type { Theme } from '../hooks/useTheme'
 
 interface Props {
   userId: string
@@ -12,6 +13,7 @@ interface Props {
   openingName: string
   openingEco: string
   onLoadMoves: (moves: string[]) => void
+  theme: Theme
 }
 
 export function SavedOpenings({
@@ -23,10 +25,17 @@ export function SavedOpenings({
 }: Props) {
   const [saved, setSaved] = useState<SavedOpening[]>([])
   const [saving, setSaving] = useState(false)
+  const [firestoreError, setFirestoreError] = useState(false)
 
   const refresh = useCallback(async () => {
-    const list = await getSavedOpenings(userId)
-    setSaved(list)
+    try {
+      const list = await getSavedOpenings(userId)
+      setSaved(list)
+      setFirestoreError(false)
+    } catch (err) {
+      console.warn('Firestore not available:', err)
+      setFirestoreError(true)
+    }
   }, [userId])
 
   useEffect(() => {
@@ -43,6 +52,9 @@ export function SavedOpenings({
         moves: moveHistory,
       })
       await refresh()
+    } catch (err) {
+      console.warn('Save failed:', err)
+      setFirestoreError(true)
     } finally {
       setSaving(false)
     }
@@ -50,16 +62,31 @@ export function SavedOpenings({
 
   const handleDelete = useCallback(
     async (id: string) => {
-      await deleteOpening(userId, id)
-      await refresh()
+      try {
+        await deleteOpening(userId, id)
+        await refresh()
+      } catch {}
     },
     [userId, refresh],
   )
 
+  if (firestoreError) {
+    return (
+      <div className="bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-3 sm:p-4 transition-colors">
+        <h4 className="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+          Saved Openings
+        </h4>
+        <p className="text-[10px] sm:text-xs text-gray-400">
+          Cloud save unavailable. Create a Firestore database in your Firebase console to enable saving.
+        </p>
+      </div>
+    )
+  }
+
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 sm:p-4">
+    <div className="bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-3 sm:p-4 transition-colors">
       <div className="flex items-center justify-between mb-3">
-        <h4 className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wide">
+        <h4 className="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wide">
           Saved Openings
         </h4>
         <button
@@ -72,31 +99,31 @@ export function SavedOpenings({
       </div>
 
       {saved.length === 0 ? (
-        <p className="text-gray-600 text-[10px] sm:text-xs">No saved openings yet.</p>
+        <p className="text-gray-400 text-[10px] sm:text-xs">No saved openings yet.</p>
       ) : (
         <div className="space-y-1 max-h-48 sm:max-h-64 overflow-y-auto">
           {saved.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between bg-gray-800/50 rounded px-2 sm:px-3 py-1.5 sm:py-2 hover:bg-gray-800 transition-colors group"
+              className="flex items-center justify-between bg-gray-200 dark:bg-gray-800/50 rounded px-2 sm:px-3 py-1.5 sm:py-2 hover:bg-gray-300 dark:hover:bg-gray-800 transition-colors group"
             >
               <button
                 onClick={() => onLoadMoves(item.moves)}
                 className="text-left flex-1 min-w-0"
               >
-                <span className="text-[10px] sm:text-xs font-mono text-blue-400 mr-1 sm:mr-2">
+                <span className="text-[10px] sm:text-xs font-mono text-blue-500 dark:text-blue-400 mr-1 sm:mr-2">
                   {item.eco}
                 </span>
-                <span className="text-xs sm:text-sm text-white truncate">{item.name}</span>
-                <span className="text-[9px] sm:text-[10px] text-gray-500 ml-1 sm:ml-2">
+                <span className="text-xs sm:text-sm text-gray-900 dark:text-white truncate">{item.name}</span>
+                <span className="text-[9px] sm:text-[10px] text-gray-400 ml-1 sm:ml-2">
                   ({item.moves.length})
                 </span>
               </button>
               <button
                 onClick={() => handleDelete(item.id)}
-                className="text-gray-600 hover:text-red-400 text-xs ml-1 sm:ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="text-gray-400 hover:text-red-500 text-xs ml-1 sm:ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
               >
-                ✕
+                X
               </button>
             </div>
           ))}

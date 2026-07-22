@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+@layer base {
+  .light {
+    --background: 0 0% 98%;
+    --foreground: 222.2 84% 4.9%;
+  }
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+  }
+}
+
 html {
   -webkit-text-size-adjust: 100%;
   -webkit-font-smoothing: antialiased;
@@ -11,7 +22,10 @@ body {
   overscroll-behavior: none;
 }
 
-input[type="password"],
-input[type="text"] {
-  autocomplete: off;
+html.dark {
+  color-scheme: dark;
+}
+
+html.light {
+  color-scheme: light;
 }

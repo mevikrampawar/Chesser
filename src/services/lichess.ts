@@ -1,6 +1,6 @@
 import type { LichessExplorerResponse } from '../types'
 
-const EXPLORER_URL = 'https://explorer.lichess.ovh/lichess'
+const EXPLORER_URL = 'https://explorer.lichess.ovh/masters'
 
 let lastRequest = 0
 const MIN_INTERVAL = 350
@@ -22,7 +22,7 @@ export async function fetchOpeningFromLichess(
   lastRequest = Date.now()
 
   try {
-    const params = new URLSearchParams({ play: uciMoves.join(','), variant: 'chess' })
+    const params = new URLSearchParams({ play: uciMoves.join(',') })
     const res = await fetch(`${EXPLORER_URL}?${params}`)
     if (res.status === 429 || !res.ok) return null
     return await res.json()

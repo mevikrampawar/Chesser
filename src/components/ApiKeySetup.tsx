@@ -1,11 +1,13 @@
 import { useState, useCallback } from 'react'
 import { setApiKey, testApiKey } from '../services/llm'
+import type { Theme } from '../hooks/useTheme'
 
 interface Props {
   onDone: () => void
+  theme: Theme
 }
 
-export function ApiKeySetup({ onDone }: Props) {
+export function ApiKeySetup({ onDone, theme }: Props) {
   const [key, setKey] = useState('')
   const [testing, setTesting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -17,30 +19,47 @@ export function ApiKeySetup({ onDone }: Props) {
     setTesting(true)
     setError(null)
 
-    const valid = await testApiKey(trimmed)
-    if (valid) {
-      setApiKey(trimmed)
-      onDone()
-    } else {
-      setError('Invalid API key. Get a free key at console.groq.com')
+    try {
+      const valid = await testApiKey(trimmed)
+      if (valid) {
+        setApiKey(trimmed)
+        onDone()
+      } else {
+        setError('Invalid API key. Get a free key at console.groq.com')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to verify API key')
+    } finally {
+      setTesting(false)
     }
-    setTesting(false)
   }, [key, onDone])
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
+    <div className={`min-h-screen flex items-center justify-center px-4 transition-colors ${
+      theme === 'dark' ? 'bg-gray-950' : 'bg-gray-50'
+    }`}>
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="text-6xl mb-4">♟</div>
-          <h1 className="text-3xl font-bold text-white mb-2">Chesser</h1>
-          <p className="text-gray-400 text-sm">
+          <h1 className={`text-3xl font-bold mb-2 ${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>Chesser</h1>
+          <p className={`text-sm ${
+            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+          }`}>
             One more step — enter your free Groq API key.
           </p>
         </div>
 
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+        <div className={`rounded-2xl p-6 border space-y-4 transition-colors ${
+          theme === 'dark'
+            ? 'bg-gray-900 border-gray-800'
+            : 'bg-white border-gray-200 shadow-lg'
+        }`}>
           <div>
-            <label className="block text-xs text-gray-400 mb-2">
+            <label className={`block text-xs mb-2 ${
+              theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+            }`}>
               Groq API Key
             </label>
             <input
@@ -49,13 +68,17 @@ export function ApiKeySetup({ onDone }: Props) {
               onChange={(e) => setKey(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
               placeholder="gsk_..."
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+              className={`w-full rounded-lg px-4 py-3 text-sm transition-colors ${
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-blue-500'
+                  : 'bg-gray-50 border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-blue-500'
+              } border outline-none`}
             />
           </div>
 
           {error && (
-            <div className="bg-red-950/50 border border-red-800 rounded-lg p-3">
-              <p className="text-red-400 text-sm">{error}</p>
+            <div className="bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-lg p-3">
+              <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
             </div>
           )}
 
@@ -72,15 +95,21 @@ export function ApiKeySetup({ onDone }: Props) {
               href="https://console.groq.com/keys"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300 text-xs"
+              className="text-blue-500 hover:text-blue-600 text-xs"
             >
               Get free key at console.groq.com →
             </a>
           </div>
 
-          <div className="bg-gray-800/50 rounded-lg p-3">
-            <p className="text-gray-400 text-xs leading-relaxed">
-              <span className="text-white font-medium">Free tier:</span> 30 requests/min, 6000 tokens/min.
+          <div className={`rounded-lg p-3 ${
+            theme === 'dark' ? 'bg-gray-800/50' : 'bg-gray-100'
+          }`}>
+            <p className={`text-xs leading-relaxed ${
+              theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              <span className={`font-medium ${
+                theme === 'dark' ? 'text-white' : 'text-gray-900'
+              }`}>Free tier:</span> 30 requests/min, 6000 tokens/min.
               No credit card. Takes 2 minutes to sign up.
             </p>
           </div>
