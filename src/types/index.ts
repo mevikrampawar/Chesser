@@ -25,4 +25,4 @@ export interface OpeningData {
   topMoves: TopMove[]
 }
 
-export type AppScreen = 'login' | 'apikey' | 'app'
+export type AppScreen = 'login' | 'app'

@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { Chessboard } from 'react-chessboard'
-import type { Theme } from '../hooks/useTheme'
+import type { Theme } from '@/hooks/useTheme'
 
 interface Props {
   fen: string

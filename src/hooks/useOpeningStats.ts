@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import type { OpeningData } from '../types'
 import { identifyOpening } from '../services/opening'
+import type { Provider } from '../services/llm'
 
 export function useOpeningAnalysis() {
   const [data, setData] = useState<OpeningData | null>(null)
@@ -8,9 +9,13 @@ export function useOpeningAnalysis() {
   const [error, setError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
-  const analyze = useCallback(async (uciMoves: string[]) => {
-    if (uciMoves.length === 0) {
+  const analyze = useCallback(async (sanMoves: string[], provider: Provider, apiKey: string) => {
+    if (sanMoves.length === 0) {
       setData(null)
+      return
+    }
+    if (!apiKey) {
+      setError(`No ${provider === 'gemini' ? 'Gemini' : 'Groq'} API key set. Add one in Settings.`)
       return
     }
 
@@ -21,7 +26,7 @@ export function useOpeningAnalysis() {
     setError(null)
 
     try {
-      const result = await identifyOpening(uciMoves)
+      const result = await identifyOpening(sanMoves, provider, apiKey)
       if (!abortRef.current.signal.aborted) {
         setData(result)
       }

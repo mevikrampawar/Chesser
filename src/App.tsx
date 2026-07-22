@@ -3,15 +3,16 @@ import { ChessBoard } from './components/ChessBoard'
 import { OpeningPanel } from './components/OpeningPanel'
 import { MoveHistory } from './components/MoveHistory'
 import { LoginScreen } from './components/LoginScreen'
-import { ApiKeySetup } from './components/ApiKeySetup'
 import { SavedOpenings } from './components/SavedOpenings'
 import { ThemeToggle } from './components/ThemeToggle'
+import { AIHub } from './components/AIHub'
+import { Toaster } from './components/ui/toaster'
 import { useChessGame } from './hooks/useChessGame'
 import { useOpeningAnalysis } from './hooks/useOpeningStats'
 import { useAuth } from './hooks/useAuth'
 import { useTheme } from './hooks/useTheme'
-import { hasApiKey, clearApiKey } from './services/llm'
-import type { AppScreen } from './types'
+import { useAIHub } from './hooks/useAIHub'
+import { Settings, LogOut } from 'lucide-react'
 
 export default function App() {
   const { user, loading: authLoading, error: authError, signInWithGoogle, logout } = useAuth()
@@ -29,32 +30,31 @@ export default function App() {
     undoMove,
   } = useChessGame()
 
+  const aiHub = useAIHub(user?.uid || null)
   const { data: openingData, analyzing, error: analysisError, analyze, clear } = useOpeningAnalysis()
+
+  const [aiHubOpen, setAiHubOpen] = useState(false)
+  const [mobileTab, setMobileTab] = useState<'board' | 'analysis' | 'settings'>('board')
 
   const prevMoveCount = useRef(0)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const [, forceUpdate] = useState(0)
 
-  const screen: AppScreen = authLoading
-    ? 'login'
-    : !user
-      ? 'login'
-      : !hasApiKey()
-        ? 'apikey'
-        : 'app'
+  useEffect(() => {
+    const hasKey = aiHub.hasActiveKey()
+    if (hasKey && moveHistorySan.length > 0 && moveHistorySan.length !== prevMoveCount.current) {
+      prevMoveCount.current = moveHistorySan.length
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(
+        () => analyze(moveHistorySan, aiHub.settings.activeProvider, aiHub.getActiveApiKey()),
+        600,
+      )
+    }
+  }, [moveHistorySan, analyze, aiHub.settings.activeProvider, aiHub.getActiveApiKey, aiHub.hasActiveKey])
 
   const handleMove = useCallback(
     (source: string, target: string) => makeMove(source, target),
     [makeMove],
   )
-
-  useEffect(() => {
-    if (screen === 'app' && moveHistorySan.length > 0 && moveHistorySan.length !== prevMoveCount.current) {
-      prevMoveCount.current = moveHistorySan.length
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(() => analyze(moveHistorySan), 600)
-    }
-  }, [screen, moveHistorySan, analyze])
 
   const handleReset = useCallback(() => {
     resetGame()
@@ -75,20 +75,20 @@ export default function App() {
   )
 
   const handleLogout = useCallback(() => {
-    clearApiKey()
+    clear()
     logout()
-  }, [logout])
+  }, [clear, logout])
 
-  const handleApiKeyDone = useCallback(() => {
-    forceUpdate((n) => n + 1)
-  }, [])
-
-  if (screen === 'login') {
-    return <LoginScreen onSignIn={signInWithGoogle} error={authError} theme={theme} />
+  if (authLoading) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center ${theme === 'dark' ? 'bg-[#0a0a0f]' : 'bg-gray-50'}`}>
+        <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" />
+      </div>
+    )
   }
 
-  if (screen === 'apikey') {
-    return <ApiKeySetup onDone={handleApiKeyDone} theme={theme} />
+  if (!user) {
+    return <LoginScreen onSignIn={signInWithGoogle} error={authError} theme={theme} />
   }
 
   const isDark = theme === 'dark'
@@ -107,8 +107,9 @@ export default function App() {
           </div>
         )}
 
-        <div className="relative max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6">
-          <header className="flex items-center justify-between mb-4 sm:mb-6">
+        <div className="relative max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-6">
+          {/* Header */}
+          <header className="flex items-center justify-between mb-3 sm:mb-4 lg:mb-6">
             <div className="flex items-center gap-2 sm:gap-3">
               <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-lg sm:text-xl ${
                 isDark
@@ -158,44 +159,224 @@ export default function App() {
 
               <div className={`w-px h-6 mx-1 ${isDark ? 'bg-white/10' : 'bg-gray-200'}`} />
 
-              {user && (
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  {user.photoURL && (
-                    <img src={user.photoURL} alt="" className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full ${
-                      isDark ? 'ring-2 ring-cyan-500/30' : 'ring-2 ring-gray-200'
-                    }`} />
-                  )}
-                  <button
-                    onClick={handleLogout}
-                    className={`text-xs hidden sm:block transition-colors ${
-                      isDark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'
-                    }`}
-                  >
-                    Sign Out
-                  </button>
-                </div>
+              <button
+                onClick={() => setAiHubOpen(true)}
+                className={`p-2 rounded-lg transition-all ${
+                  isDark
+                    ? 'bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10'
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200'
+                }`}
+                title="AI Hub"
+              >
+                <Settings className="h-4 w-4" />
+              </button>
+
+              {user.photoURL && (
+                <img
+                  src={user.photoURL}
+                  alt=""
+                  className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full ${
+                    isDark ? 'ring-2 ring-cyan-500/30' : 'ring-2 ring-gray-200'
+                  }`}
+                />
               )}
+
+              <button
+                onClick={handleLogout}
+                className={`hidden sm:flex items-center gap-1 text-xs transition-colors ${
+                  isDark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
             </div>
           </header>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          {/* No API key warning */}
+          {!aiHub.hasActiveKey() && (
+            <div className={`mb-4 rounded-xl p-3 sm:p-4 border ${
+              isDark
+                ? 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+                : 'bg-amber-50 border-amber-200 text-amber-700'
+            }`}>
+              <div className="flex items-center justify-between">
+                <p className="text-xs sm:text-sm">
+                  Add an API key to start analyzing openings.
+                </p>
+                <button
+                  onClick={() => setAiHubOpen(true)}
+                  className="text-xs font-medium underline ml-2 shrink-0"
+                >
+                  Open AI Hub
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Mobile: Tab-based layout */}
+          <div className="lg:hidden">
+            {mobileTab === 'board' && (
+              <div className="space-y-3">
+                <ChessBoard fen={fen} onMove={handleMove} isGameOver={isGameOver} theme={theme} />
+                <div className={`rounded-xl p-3 border ${
+                  isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-white border-gray-200 shadow-sm'
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-[10px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                      {isCheckmate ? 'Checkmate!' : isDraw ? 'Draw' : isCheck ? 'Check!' : `${moveHistorySan.length} half-moves`}
+                    </span>
+                    <span className={`text-[10px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                      {moveHistorySan.length > 0 && `Turn: ${moveHistorySan.length % 2 === 0 ? 'White' : 'Black'}`}
+                    </span>
+                  </div>
+                  <MoveHistory movesSan={moveHistorySan} theme={theme} />
+                </div>
+                {/* Mini opening info */}
+                {openingData && (
+                  <div className={`rounded-xl p-3 border ${
+                    isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-white border-gray-200 shadow-sm'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                        isDark ? 'bg-cyan-500/10 text-cyan-400' : 'bg-blue-50 text-blue-600'
+                      }`}>
+                        {openingData.opening.eco}
+                      </span>
+                      <span className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                        {openingData.opening.name}
+                      </span>
+                    </div>
+                    {openingData.stats && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className={`flex-1 h-2 rounded-full overflow-hidden flex ${
+                          isDark ? 'bg-white/5' : 'bg-gray-100'
+                        }`}>
+                          <div className={`bg-white ${isDark ? '' : 'bg-gray-800'}`} style={{ width: `${openingData.stats.white}%` }} />
+                          <div className={`bg-gray-500 ${isDark ? '' : 'bg-gray-400'}`} style={{ width: `${openingData.stats.draws}%` }} />
+                          <div className={`bg-gray-700 ${isDark ? '' : 'bg-gray-300'}`} style={{ width: `${openingData.stats.black}%` }} />
+                        </div>
+                        <span className={`text-[10px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                          {openingData.stats.white}/{openingData.stats.draws}/{openingData.stats.black}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {mobileTab === 'analysis' && (
+              <div className="space-y-3">
+                <OpeningPanel
+                  data={openingData}
+                  analyzing={analyzing}
+                  error={analysisError}
+                  moveCount={moveHistorySan.length}
+                  moveHistory={moveHistory}
+                  theme={theme}
+                />
+                {user && (
+                  <SavedOpenings
+                    userId={user.uid}
+                    moveHistory={moveHistory}
+                    openingName={openingData?.opening.name || ''}
+                    openingEco={openingData?.opening.eco || ''}
+                    onLoadMoves={handleLoadSavedMoves}
+                    theme={theme}
+                  />
+                )}
+              </div>
+            )}
+
+            {mobileTab === 'settings' && (
+              <div className="space-y-3">
+                <div className={`rounded-xl p-4 border space-y-4 ${
+                  isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-white border-gray-200 shadow-sm'
+                }`}>
+                  <h3 className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    Account
+                  </h3>
+                  <div className="flex items-center gap-3">
+                    {user.photoURL && (
+                      <img src={user.photoURL} alt="" className="w-10 h-10 rounded-full" />
+                    )}
+                    <div>
+                      <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                        {user.displayName || 'User'}
+                      </p>
+                      <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                        {user.email}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 text-sm text-red-500 hover:text-red-400"
+                  >
+                    <LogOut className="h-4 w-4" /> Sign Out
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => setAiHubOpen(true)}
+                  className={`w-full rounded-xl p-4 border text-left ${
+                    isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-white border-gray-200 shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                        AI Hub
+                      </h3>
+                      <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                        Configure AI providers and API keys
+                      </p>
+                    </div>
+                    <Settings className={`h-4 w-4 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
+                  </div>
+                </button>
+              </div>
+            )}
+
+            {/* Bottom Tab Bar */}
+            <div className={`fixed bottom-0 left-0 right-0 border-t z-40 ${
+              isDark ? 'bg-[#0a0a0f] border-white/10' : 'bg-white border-gray-200'
+            }`}>
+              <div className="flex items-center justify-around py-2 max-w-lg mx-auto">
+                {([
+                  { id: 'board' as const, icon: '♟', label: 'Board' },
+                  { id: 'analysis' as const, icon: '📊', label: 'Analysis' },
+                  { id: 'settings' as const, icon: '⚙', label: 'Settings' },
+                ]).map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setMobileTab(tab.id)}
+                    className={`flex flex-col items-center gap-0.5 px-4 py-1 transition-colors ${
+                      mobileTab === tab.id
+                        ? isDark ? 'text-cyan-400' : 'text-blue-600'
+                        : isDark ? 'text-gray-500' : 'text-gray-400'
+                    }`}
+                  >
+                    <span className="text-lg">{tab.icon}</span>
+                    <span className="text-[10px]">{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop: Side-by-side layout */}
+          <div className="hidden lg:grid lg:grid-cols-3 gap-4 sm:gap-6">
             <div className="lg:col-span-2 space-y-3 sm:space-y-4">
               <ChessBoard fen={fen} onMove={handleMove} isGameOver={isGameOver} theme={theme} />
-
               <div className={`rounded-xl p-3 sm:p-4 border transition-colors ${
-                isDark
-                  ? 'bg-white/[0.02] border-white/[0.06]'
-                  : 'bg-white border-gray-200 shadow-sm'
+                isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-white border-gray-200 shadow-sm'
               }`}>
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`text-[10px] sm:text-xs ${
-                    isDark ? 'text-gray-500' : 'text-gray-400'
-                  }`}>
+                  <span className={`text-[10px] sm:text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                     {isCheckmate ? 'Checkmate!' : isDraw ? 'Draw' : isCheck ? 'Check!' : `${moveHistorySan.length} half-moves`}
                   </span>
-                  <span className={`text-[10px] sm:text-xs ${
-                    isDark ? 'text-gray-500' : 'text-gray-400'
-                  }`}>
+                  <span className={`text-[10px] sm:text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                     {moveHistorySan.length > 0 && `Turn: ${moveHistorySan.length % 2 === 0 ? 'White' : 'Black'}`}
                   </span>
                 </div>
@@ -225,7 +406,27 @@ export default function App() {
             </div>
           </div>
         </div>
+
+        {/* Bottom padding for mobile tab bar */}
+        <div className="h-20 lg:hidden" />
       </div>
+
+      {/* AI Hub Sidebar */}
+      <AIHub
+        open={aiHubOpen}
+        onOpenChange={setAiHubOpen}
+        settings={aiHub.settings}
+        loading={aiHub.loading}
+        saving={aiHub.saving}
+        error={aiHub.error}
+        onUpdateGroqKey={aiHub.updateGroqKey}
+        onUpdateGeminiKey={aiHub.updateGeminiKey}
+        onSetActiveProvider={aiHub.setActiveProvider}
+        onSave={aiHub.save}
+      />
+
+      {/* Toast notifications */}
+      <Toaster />
     </div>
   )
 }

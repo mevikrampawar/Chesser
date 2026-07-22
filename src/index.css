@@ -1,26 +1,126 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  /* Sci-fi Dark theme colors */
+  --color-background: #0a0a0f;
+  --color-foreground: #e2e8f0;
+  --color-card: #0f0f17;
+  --color-card-foreground: #e2e8f0;
+  --color-popover: #0f0f17;
+  --color-popover-foreground: #e2e8f0;
+  --color-primary: #06b6d4;
+  --color-primary-foreground: #0a0a0f;
+  --color-secondary: #1e293b;
+  --color-secondary-foreground: #e2e8f0;
+  --color-muted: #1e293b;
+  --color-muted-foreground: #94a3b8;
+  --color-accent: #3b82f6;
+  --color-accent-foreground: #0a0a0f;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #1e293b;
+  --color-input: #1e293b;
+  --color-ring: #06b6d4;
+  --color-chart-1: #06b6d4;
+  --color-chart-2: #3b82f6;
+  --color-chart-3: #8b5cf6;
+  --color-chart-4: #f59e0b;
+  --color-chart-5: #ef4444;
+  --color-sidebar: #0a0a0f;
+  --color-sidebar-foreground: #e2e8f0;
+  --color-sidebar-primary: #06b6d4;
+  --color-sidebar-primary-foreground: #0a0a0f;
+  --color-sidebar-accent: #1e293b;
+  --color-sidebar-accent-foreground: #e2e8f0;
+  --color-sidebar-border: #1e293b;
+  --color-sidebar-ring: #06b6d4;
+
+  /* Light theme overrides applied via .light class */
+  --color-light-background: #f8fafc;
+  --color-light-foreground: #0f172a;
+  --color-light-card: #ffffff;
+  --color-light-card-foreground: #0f172a;
+  --color-light-primary: #3b82f6;
+  --color-light-primary-foreground: #ffffff;
+  --color-light-secondary: #f1f5f9;
+  --color-light-secondary-foreground: #0f172a;
+  --color-light-muted: #f1f5f9;
+  --color-light-muted-foreground: #64748b;
+  --color-light-accent: #6366f1;
+  --color-light-accent-foreground: #ffffff;
+  --color-light-border: #e2e8f0;
+  --color-light-input: #e2e8f0;
+  --color-light-ring: #3b82f6;
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+}
+
 @layer base {
   html.dark {
     color-scheme: dark;
+    --background: var(--color-background);
+    --foreground: var(--color-foreground);
+    --card: var(--color-card);
+    --card-foreground: var(--color-card-foreground);
+    --popover: var(--color-popover);
+    --popover-foreground: var(--color-popover-foreground);
+    --primary: var(--color-primary);
+    --primary-foreground: var(--color-primary-foreground);
+    --secondary: var(--color-secondary);
+    --secondary-foreground: var(--color-secondary-foreground);
+    --muted: var(--color-muted);
+    --muted-foreground: var(--color-muted-foreground);
+    --accent: var(--color-accent);
+    --accent-foreground: var(--color-accent-foreground);
+    --destructive: var(--color-destructive);
+    --destructive-foreground: var(--color-destructive-foreground);
+    --border: var(--color-border);
+    --input: var(--color-input);
+    --ring: var(--color-ring);
   }
   html.light {
     color-scheme: light;
+    --background: var(--color-light-background);
+    --foreground: var(--color-light-foreground);
+    --card: var(--color-light-card);
+    --card-foreground: var(--color-light-card-foreground);
+    --popover: var(--color-light-card);
+    --popover-foreground: var(--color-light-card-foreground);
+    --primary: var(--color-light-primary);
+    --primary-foreground: var(--color-light-primary-foreground);
+    --secondary: var(--color-light-secondary);
+    --secondary-foreground: var(--color-light-secondary-foreground);
+    --muted: var(--color-light-muted);
+    --muted-foreground: var(--color-light-muted-foreground);
+    --accent: var(--color-light-accent);
+    --accent-foreground: var(--color-light-accent-foreground);
+    --destructive: var(--color-destructive);
+    --destructive-foreground: var(--color-destructive-foreground);
+    --border: var(--color-light-border);
+    --input: var(--color-light-input);
+    --ring: var(--color-light-ring);
   }
 }
 
-html {
-  -webkit-text-size-adjust: 100%;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    margin: 0;
+    overscroll-behavior: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 }
 
-body {
-  margin: 0;
-  overscroll-behavior: none;
-}
-
-/* Sci-fi glow effects */
 @keyframes pulse-glow {
   0%, 100% { opacity: 0.4; }
   50% { opacity: 0.8; }

@@ -1,5 +1,9 @@
 import { useCallback, useState } from 'react'
-import type { Theme } from '../hooks/useTheme'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { toast } from '@/hooks/useToast'
+import type { Theme } from '@/hooks/useTheme'
+import { Share2, Copy, Check } from 'lucide-react'
 
 interface Props {
   moveHistory: string[]
@@ -25,16 +29,10 @@ export function ShareOpening({ moveHistory, openingName, openingEco, theme }: Pr
     try {
       await navigator.clipboard.writeText(url)
       setCopied(true)
+      toast({ title: 'Copied!', description: 'Share link copied to clipboard', variant: 'success' })
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      const input = document.createElement('input')
-      input.value = url
-      document.body.appendChild(input)
-      input.select()
-      document.execCommand('copy')
-      document.body.removeChild(input)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      toast({ title: 'Failed to copy', description: 'Please copy the link manually', variant: 'destructive' })
     }
   }, [buildShareUrl])
 
@@ -44,7 +42,9 @@ export function ShareOpening({ moveHistory, openingName, openingEco, theme }: Pr
     if (navigator.share) {
       try {
         await navigator.share({ title: 'Chesser Opening', text, url })
-      } catch {}
+      } catch {
+        // User cancelled share
+      }
     } else {
       setShowShare(true)
     }
@@ -54,16 +54,15 @@ export function ShareOpening({ moveHistory, openingName, openingEco, theme }: Pr
 
   return (
     <div className="relative">
-      <button
+      <Button
         onClick={handleNativeShare}
-        className={`w-full text-xs sm:text-sm font-medium py-2 px-4 rounded-xl transition-all ${
-          isDark
-            ? 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/20'
-            : 'bg-blue-500 hover:bg-blue-400 text-white'
-        }`}
+        variant={isDark ? 'outline' : 'default'}
+        className="w-full"
+        size="sm"
       >
+        <Share2 className="h-4 w-4 mr-2" />
         Share Opening
-      </button>
+      </Button>
 
       {showShare && (
         <div className={`absolute bottom-full left-0 right-0 mb-2 rounded-xl p-3 shadow-xl z-10 ${
@@ -71,29 +70,18 @@ export function ShareOpening({ moveHistory, openingName, openingEco, theme }: Pr
             ? 'bg-[#0f0f17] border border-white/10'
             : 'bg-white border border-gray-200 shadow-lg'
         }`}>
-          <p className={`text-xs mb-2 ${
-            isDark ? 'text-gray-400' : 'text-gray-500'
-          }`}>Copy this link to share:</p>
+          <p className={`text-xs mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            Copy this link to share:
+          </p>
           <div className="flex gap-2">
-            <input
+            <Input
               readOnly
               value={buildShareUrl()}
-              className={`flex-1 text-xs px-3 py-2 rounded-lg outline-none ${
-                isDark
-                  ? 'bg-white/5 text-white border border-white/10'
-                  : 'bg-gray-50 text-gray-900 border border-gray-200'
-              }`}
+              className="text-xs"
             />
-            <button
-              onClick={handleCopy}
-              className={`text-xs px-3 py-2 rounded-lg transition-all shrink-0 ${
-                isDark
-                  ? 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400'
-                  : 'bg-blue-500 hover:bg-blue-400 text-white'
-              }`}
-            >
-              {copied ? '✓' : 'Copy'}
-            </button>
+            <Button size="sm" onClick={handleCopy}>
+              {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+            </Button>
           </div>
           <button
             onClick={() => setShowShare(false)}
@@ -101,7 +89,7 @@ export function ShareOpening({ moveHistory, openingName, openingEco, theme }: Pr
               isDark ? 'text-gray-600 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'
             }`}
           >
-            ✕
+            ×
           </button>
         </div>
       )}
