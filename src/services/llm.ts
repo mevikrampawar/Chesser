@@ -1,4 +1,4 @@
-import { geminiChatCompletion, testGeminiApiKey } from './gemini'
+import { geminiChatCompletion, testGeminiApiKey, type GeminiKeyStatus } from './gemini'
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const GROQ_MODEL = 'llama-3.1-8b-instant'
@@ -39,7 +39,9 @@ async function groqChatCompletion(
   return data.choices?.[0]?.message?.content || ''
 }
 
-async function groqTestApiKey(key: string): Promise<boolean> {
+export type GroqKeyStatus = 'valid' | 'invalid' | 'rate_limited'
+
+async function groqTestApiKey(key: string): Promise<GroqKeyStatus> {
   try {
     const res = await fetch(GROQ_API_URL, {
       method: 'POST',
@@ -53,11 +55,15 @@ async function groqTestApiKey(key: string): Promise<boolean> {
         max_tokens: 10,
       }),
     })
-    return res.ok
+    if (res.ok) return 'valid'
+    if (res.status === 429) return 'rate_limited'
+    return 'invalid'
   } catch {
-    return false
+    return 'invalid'
   }
 }
+
+export type KeyStatus = GeminiKeyStatus | GroqKeyStatus
 
 // --- Unified interface ---
 export async function chatCompletionWithProvider(
@@ -72,7 +78,7 @@ export async function chatCompletionWithProvider(
 export async function testApiKeyForProvider(
   provider: Provider,
   key: string,
-): Promise<boolean> {
+): Promise<KeyStatus> {
   if (provider === 'gemini') return testGeminiApiKey(key)
   return groqTestApiKey(key)
 }

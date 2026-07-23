@@ -35,6 +35,7 @@ export async function geminiChatCompletion(
 
   if (!res.ok) {
     if (res.status === 400) throw new Error('Invalid Gemini API key')
+    if (res.status === 403) throw new Error('Gemini API key not authorized. Enable the Generative Language API in Google Cloud Console.')
     if (res.status === 429) throw new Error('Rate limited — try again in a moment')
     throw new Error(`Gemini API error ${res.status}`)
   }
@@ -43,7 +44,9 @@ export async function geminiChatCompletion(
   return data.candidates?.[0]?.content?.parts?.[0]?.text || ''
 }
 
-export async function testGeminiApiKey(key: string): Promise<boolean> {
+export type GeminiKeyStatus = 'valid' | 'invalid' | 'rate_limited' | 'disabled'
+
+export async function testGeminiApiKey(key: string): Promise<GeminiKeyStatus> {
   try {
     const res = await fetch(`${GEMINI_API_URL}?key=${key}`, {
       method: 'POST',
@@ -53,11 +56,11 @@ export async function testGeminiApiKey(key: string): Promise<boolean> {
         generationConfig: { maxOutputTokens: 10 },
       }),
     })
-    // 200 = valid, 429 = valid but rate limited, 400 = invalid key, 403 = invalid key
-    if (res.ok) return true
-    if (res.status === 429) return true
-    return false
+    if (res.ok) return 'valid'
+    if (res.status === 429) return 'rate_limited'
+    if (res.status === 403) return 'disabled'
+    return 'invalid'
   } catch {
-    return false
+    return 'invalid'
   }
 }
