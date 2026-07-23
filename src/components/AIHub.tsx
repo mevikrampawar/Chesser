@@ -153,13 +153,16 @@ export function AIHub({
                     {groqVerified === true && <span className="text-[10px] text-green-500 font-medium">Valid</span>}
                     {groqVerified === false && <span className="text-[10px] text-red-500 font-medium">Invalid</span>}
                   </div>
-                  <Input
-                    type="password"
-                    placeholder="gsk_..."
-                    value={settings.groqApiKey}
-                    onChange={(e) => onUpdateGroqKey(e.target.value)}
-                    className="font-mono text-xs"
-                  />
+                  <form onSubmit={(e) => { e.preventDefault(); handleVerify('groq') }}>
+                    <Input
+                      type="password"
+                      placeholder="gsk_..."
+                      value={settings.groqApiKey}
+                      onChange={(e) => onUpdateGroqKey(e.target.value)}
+                      className="font-mono text-xs"
+                      autoComplete="off"
+                    />
+                  </form>
                   <div className="flex items-center gap-2">
                     <Button
                       size="sm"
@@ -200,13 +203,16 @@ export function AIHub({
                     {geminiVerified === true && <span className="text-[10px] text-green-500 font-medium">Valid</span>}
                     {geminiVerified === false && <span className="text-[10px] text-red-500 font-medium">Invalid</span>}
                   </div>
-                  <Input
-                    type="password"
-                    placeholder="AIza..."
-                    value={settings.geminiApiKey}
-                    onChange={(e) => onUpdateGeminiKey(e.target.value)}
-                    className="font-mono text-xs"
-                  />
+                  <form onSubmit={(e) => { e.preventDefault(); handleVerify('gemini') }}>
+                    <Input
+                      type="password"
+                      placeholder="AIza..."
+                      value={settings.geminiApiKey}
+                      onChange={(e) => onUpdateGeminiKey(e.target.value)}
+                      className="font-mono text-xs"
+                      autoComplete="off"
+                    />
+                  </form>
                   <div className="flex items-center gap-2">
                     <Button
                       size="sm"

@@ -53,7 +53,10 @@ export async function testGeminiApiKey(key: string): Promise<boolean> {
         generationConfig: { maxOutputTokens: 10 },
       }),
     })
-    return res.ok
+    // 200 = valid, 429 = valid but rate limited, 400 = invalid key, 403 = invalid key
+    if (res.ok) return true
+    if (res.status === 429) return true
+    return false
   } catch {
     return false
   }

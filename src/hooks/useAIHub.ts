@@ -53,13 +53,26 @@ export function useAIHub(userId: string | null) {
     }
   }, [userId, settings.groqApiKey, settings.geminiApiKey, settings.activeProvider])
 
+  // Returns the best available key: preferred provider first, then fallback
   const getActiveApiKey = useCallback((): string => {
-    return settings.activeProvider === 'gemini' ? settings.geminiApiKey : settings.groqApiKey
+    if (settings.activeProvider === 'gemini') {
+      return settings.geminiApiKey || settings.groqApiKey
+    }
+    return settings.groqApiKey || settings.geminiApiKey
   }, [settings.activeProvider, settings.geminiApiKey, settings.groqApiKey])
 
+  // Returns which provider is actually being used
+  const getActiveProvider = useCallback((): Provider => {
+    if (settings.activeProvider === 'gemini') {
+      return settings.geminiApiKey ? 'gemini' : (settings.groqApiKey ? 'groq' : 'groq')
+    }
+    return settings.groqApiKey ? 'groq' : (settings.geminiApiKey ? 'gemini' : 'groq')
+  }, [settings.activeProvider, settings.geminiApiKey, settings.groqApiKey])
+
+  // Works if ANY key is available
   const hasActiveKey = useCallback((): boolean => {
-    return !!getActiveApiKey()
-  }, [getActiveApiKey])
+    return !!(settings.groqApiKey || settings.geminiApiKey)
+  }, [settings.groqApiKey, settings.geminiApiKey])
 
   return {
     settings,
@@ -71,6 +84,7 @@ export function useAIHub(userId: string | null) {
     setActiveProvider,
     save,
     getActiveApiKey,
+    getActiveProvider,
     hasActiveKey,
   }
 }

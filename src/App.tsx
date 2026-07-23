@@ -42,7 +42,7 @@ export default function App() {
   const prevKeyRef = useRef('')
 
   const hasKey = aiHub.hasActiveKey()
-  const activeProvider = aiHub.settings.activeProvider
+  const activeProvider = aiHub.getActiveProvider()
   const activeApiKey = aiHub.getActiveApiKey()
 
   useEffect(() => {
