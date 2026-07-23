@@ -14,6 +14,12 @@ export interface SaveResult {
   error: string | null
 }
 
+export interface LoadResult {
+  settings: AIHubSettings
+  source: 'local' | 'cloud' | 'defaults'
+  error: string | null
+}
+
 const DEFAULT_SETTINGS: AIHubSettings = {
   groqApiKey: '',
   geminiApiKey: '',
@@ -41,22 +47,43 @@ function saveLocal(settings: AIHubSettings): void {
   localStorage.setItem(LOCAL_KEY, JSON.stringify(settings))
 }
 
-export async function loadSettings(userId: string | null): Promise<AIHubSettings> {
+export async function loadSettings(userId: string | null): Promise<LoadResult> {
   const local = loadLocal()
 
-  if (!userId) return local
+  if (!userId) {
+    return { settings: local, source: 'local', error: null }
+  }
 
   try {
     const snap = await getDoc(doc(db, 'users', userId, 'settings', 'aiHub'))
-    if (!snap.exists()) return local
+    if (!snap.exists()) {
+      return { settings: local, source: 'local', error: null }
+    }
 
     const data = snap.data()
-    const groqKey = data.groqKeyEnc
-      ? await decryptApiKey(userId, String(data.groqKeyEnc))
-      : String(data.groqApiKey || '')
-    const geminiKey = data.geminiKeyEnc
-      ? await decryptApiKey(userId, String(data.geminiKeyEnc))
-      : String(data.geminiApiKey || '')
+
+    let groqKey = ''
+    let geminiKey = ''
+
+    if (data.groqKeyEnc) {
+      try {
+        groqKey = await decryptApiKey(userId, String(data.groqKeyEnc))
+      } catch (e) {
+        console.error('[AIHub] Failed to decrypt Groq key:', e)
+      }
+    } else if (data.groqApiKey) {
+      groqKey = String(data.groqApiKey)
+    }
+
+    if (data.geminiKeyEnc) {
+      try {
+        geminiKey = await decryptApiKey(userId, String(data.geminiKeyEnc))
+      } catch (e) {
+        console.error('[AIHub] Failed to decrypt Gemini key:', e)
+      }
+    } else if (data.geminiApiKey) {
+      geminiKey = String(data.geminiApiKey)
+    }
 
     if (groqKey || geminiKey) {
       const remote: AIHubSettings = {
@@ -65,13 +92,15 @@ export async function loadSettings(userId: string | null): Promise<AIHubSettings
         activeProvider: (data.activeProvider as 'groq' | 'gemini') || 'groq',
       }
       saveLocal(remote)
-      return remote
+      return { settings: remote, source: 'cloud', error: null }
     }
-  } catch {
-    // Firestore read failed — use local
-  }
 
-  return local
+    return { settings: local, source: 'local', error: null }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    console.error('[AIHub] Firestore load failed:', msg)
+    return { settings: local, source: 'local', error: `Cloud load failed: ${msg}` }
+  }
 }
 
 export async function saveSettings(
@@ -101,10 +130,8 @@ export async function saveSettings(
 
     return { ok: true, source: 'cloud', error: null }
   } catch (err) {
-    return {
-      ok: true,
-      source: 'local',
-      error: err instanceof Error ? err.message : 'Cloud save failed — check Firestore rules',
-    }
+    const msg = err instanceof Error ? err.message : 'Cloud save failed'
+    console.error('[AIHub] Firestore save failed:', msg)
+    return { ok: true, source: 'local', error: msg }
   }
 }

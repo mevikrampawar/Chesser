@@ -19,12 +19,20 @@ export function useAIHub(userId: string | null) {
     if (loadedRef.current) return
     setLoading(true)
     loadSettings(userId)
-      .then((data) => {
-        setSettings(data)
+      .then((result) => {
+        setSettings(result.settings)
         loadedRef.current = true
+        if (result.error) {
+          toast({
+            title: 'Cloud sync issue',
+            description: result.error,
+            variant: 'destructive',
+          })
+        }
       })
-      .catch(() => {
+      .catch((err) => {
         loadedRef.current = true
+        console.error('[AIHub] Unexpected load error:', err)
       })
       .finally(() => setLoading(false))
   }, [userId])
@@ -56,7 +64,7 @@ export function useAIHub(userId: string | null) {
       const result = await saveSettings(userId, settings)
       if (result.error) {
         toast({
-          title: 'Saved locally',
+          title: 'Saved locally only',
           description: result.error,
           variant: 'destructive',
         })
