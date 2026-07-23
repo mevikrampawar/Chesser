@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ScrollArea } from '@/components/ui/scroll-area'
+
 import { testApiKeyForProvider, type Provider } from '@/services/llm'
 import type { AIHubSettings } from '@/services/aiHubFirestore'
 import { toast } from '@/hooks/useToast'
@@ -64,9 +64,8 @@ export function AIHub({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-[340px] sm:w-[400px] p-0">
-        <ScrollArea className="h-full">
-          <div className="p-6 space-y-6">
+      <SheetContent side="right" className="overflow-y-auto">
+          <div className="p-6 pt-14 space-y-6">
             <SheetHeader>
               <SheetTitle>AI Hub</SheetTitle>
               <SheetDescription>
@@ -252,7 +251,6 @@ export function AIHub({
               </div>
             )}
           </div>
-        </ScrollArea>
       </SheetContent>
     </Sheet>
   )
