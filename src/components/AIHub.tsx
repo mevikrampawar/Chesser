@@ -8,107 +8,31 @@ import {
 } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { testApiKeyForProvider, type Provider, type KeyStatus } from '@/services/llm'
 import type { AIHubSettings } from '@/services/aiHubFirestore'
 import { toast } from '@/hooks/useToast'
-import {
-  Loader2,
-  Check,
-  X,
-  AlertTriangle,
-  ExternalLink,
-  Zap,
-  Sparkles,
-  CloudOff,
-  Cloud,
-  RotateCcw,
-} from 'lucide-react'
+import { Loader2, Check, X, AlertTriangle, ExternalLink, Zap, Sparkles, Shield } from 'lucide-react'
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   settings: AIHubSettings
   loading: boolean
-  syncStatus: 'idle' | 'syncing' | 'synced' | 'local_only' | 'error'
-  syncError: string | null
+  saving: boolean
   onSetActiveProvider: (provider: Provider) => void
   onUpdateKey: (provider: Provider, key: string) => void
-  onVerify: (provider: Provider) => void
-  verifying: Provider | null
-  onRetrySync: () => void
+  onSave: () => void
 }
 
-function SyncBadge({
-  status,
-  error,
-  onRetry,
-}: {
-  status: Props['syncStatus']
-  error: string | null
-  onRetry: () => void
-}) {
-  if (status === 'synced') {
-    return (
-      <span className="text-[10px] text-green-500 inline-flex items-center gap-1">
-        <Cloud className="h-3 w-3" /> Synced
-      </span>
-    )
-  }
-  if (status === 'syncing') {
-    return (
-      <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1">
-        <Loader2 className="h-3 w-3 animate-spin" /> Syncing...
-      </span>
-    )
-  }
-  if (status === 'error') {
-    return (
-      <button
-        onClick={onRetry}
-        className="text-[10px] text-amber-500 hover:text-amber-400 inline-flex items-center gap-1"
-        title={error || 'Sync failed'}
-      >
-        <CloudOff className="h-3 w-3" /> Local only{' '}
-        <RotateCcw className="h-2.5 w-2.5" />
-      </button>
-    )
-  }
-  if (status === 'local_only') {
-    return (
-      <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1">
-        <CloudOff className="h-3 w-3" /> Saved locally
-      </span>
-    )
-  }
-  return null
-}
-
-function KeyStatusBadge({ status }: { status: KeyStatus | null }) {
+function StatusDot({ status }: { status: KeyStatus | null }) {
   if (!status) return null
   if (status === 'valid')
-    return (
-      <span className="text-[10px] text-green-500 inline-flex items-center gap-1">
-        <Check className="h-3 w-3" /> OK
-      </span>
-    )
+    return <span className="inline-flex items-center gap-1 text-[11px] text-green-500 font-medium"><Check className="h-3 w-3" /> Verified</span>
   if (status === 'rate_limited')
-    return (
-      <span className="text-[10px] text-amber-500 inline-flex items-center gap-1">
-        <AlertTriangle className="h-3 w-3" /> Busy
-      </span>
-    )
+    return <span className="inline-flex items-center gap-1 text-[11px] text-amber-500 font-medium"><AlertTriangle className="h-3 w-3" /> Rate limited</span>
   if (status === 'disabled')
-    return (
-      <span className="text-[10px] text-amber-500 inline-flex items-center gap-1">
-        <AlertTriangle className="h-3 w-3" /> API off
-      </span>
-    )
-  return (
-    <span className="text-[10px] text-red-500 inline-flex items-center gap-1">
-      <X className="h-3 w-3" /> Bad key
-    </span>
-  )
+    return <span className="inline-flex items-center gap-1 text-[11px] text-amber-500 font-medium"><AlertTriangle className="h-3 w-3" /> API not enabled</span>
+  return <span className="inline-flex items-center gap-1 text-[11px] text-red-500 font-medium"><X className="h-3 w-3" /> Invalid key</span>
 }
 
 export function AIHub({
@@ -116,31 +40,14 @@ export function AIHub({
   onOpenChange,
   settings,
   loading,
-  syncStatus,
-  syncError,
+  saving,
   onSetActiveProvider,
   onUpdateKey,
-  onVerify,
-  verifying,
-  onRetrySync,
+  onSave,
 }: Props) {
   const [groqStatus, setGroqStatus] = useState<KeyStatus | null>(null)
   const [geminiStatus, setGeminiStatus] = useState<KeyStatus | null>(null)
-
-  const active = settings.activeProvider
-  const activeKey = active === 'gemini' ? settings.geminiApiKey : settings.groqApiKey
-  const otherProvider: Provider = active === 'groq' ? 'gemini' : 'groq'
-  const otherKey = otherProvider === 'gemini' ? settings.geminiApiKey : settings.groqApiKey
-
-  const handleKeyChange = useCallback(
-    (provider: Provider, value: string) => {
-      onUpdateKey(provider, value)
-      // Reset status when user edits
-      if (provider === 'groq') setGroqStatus(null)
-      else setGeminiStatus(null)
-    },
-    [onUpdateKey],
-  )
+  const [verifying, setVerifying] = useState<Provider | null>(null)
 
   const handleVerify = useCallback(
     async (provider: Provider) => {
@@ -153,52 +60,37 @@ export function AIHub({
         })
         return
       }
-      onVerify(provider)
+      setVerifying(provider)
       const status = await testApiKeyForProvider(provider, key)
+      setVerifying(null)
+
       if (provider === 'groq') setGroqStatus(status)
       else setGeminiStatus(status)
 
       if (status === 'valid') {
-        toast({
-          title: 'Key works',
-          description: `${provider === 'gemini' ? 'Gemini' : 'Groq'} key verified`,
-          variant: 'success',
-        })
+        toast({ title: 'Key verified', description: `${provider === 'gemini' ? 'Gemini' : 'Groq'} key works`, variant: 'success' })
       } else if (status === 'rate_limited') {
-        toast({
-          title: 'Rate limited',
-          description: `Key valid but quota used up. Try Groq instead.`,
-          variant: 'destructive',
-        })
+        toast({ title: 'Rate limited', description: 'Key valid but quota exhausted. Try Groq.', variant: 'destructive' })
       } else if (status === 'disabled') {
-        toast({
-          title: 'API not enabled',
-          description: `Enable Generative Language API at console.cloud.google.com`,
-          variant: 'destructive',
-        })
+        toast({ title: 'API not enabled', description: 'Enable Generative Language API at console.cloud.google.com', variant: 'destructive' })
       } else {
-        toast({
-          title: 'Invalid key',
-          description: `Double-check your ${provider === 'gemini' ? 'Gemini' : 'Groq'} API key`,
-          variant: 'destructive',
-        })
+        toast({ title: 'Invalid key', description: `Double-check your ${provider === 'gemini' ? 'Gemini' : 'Groq'} API key`, variant: 'destructive' })
       }
     },
-    [settings.groqApiKey, settings.geminiApiKey, onVerify],
+    [settings.groqApiKey, settings.geminiApiKey],
   )
+
+  const hasAnyKey = !!(settings.groqApiKey || settings.geminiApiKey)
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:w-[400px] overflow-y-auto">
-        <div className="p-6 pt-14 space-y-5">
+      <SheetContent side="right" className="w-full sm:w-[420px] overflow-y-auto">
+        <div className="p-5 sm:p-6 pt-14 space-y-5">
           <SheetHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <SheetTitle>AI Hub</SheetTitle>
-                <SheetDescription>Add one key to start playing</SheetDescription>
-              </div>
-              <SyncBadge status={syncStatus} error={syncError} onRetry={onRetrySync} />
-            </div>
+            <SheetTitle className="text-lg">AI Hub</SheetTitle>
+            <SheetDescription>
+              Add a free API key to analyze chess openings
+            </SheetDescription>
           </SheetHeader>
 
           {loading ? (
@@ -206,116 +98,45 @@ export function AIHub({
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="space-y-5">
-              {/* Provider Tabs */}
-              <div className="flex gap-2 p-1 rounded-xl bg-muted/50">
-                {(['groq', 'gemini'] as Provider[]).map((p) => {
-                  const isActive = active === p
-                  const hasKey = p === 'groq' ? !!settings.groqApiKey : !!settings.geminiApiKey
-                  return (
-                    <button
-                      key={p}
-                      onClick={() => onSetActiveProvider(p)}
-                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition-all ${
-                        isActive
-                          ? p === 'groq'
-                            ? 'bg-background text-cyan-400 shadow-sm'
-                            : 'bg-background text-blue-400 shadow-sm'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {p === 'groq' ? (
-                        <Zap className="h-4 w-4" />
-                      ) : (
-                        <Sparkles className="h-4 w-4" />
+            <div className="space-y-4">
+              {/* Groq Card */}
+              <div
+                className={`rounded-xl border-2 p-4 cursor-pointer transition-all ${
+                  settings.activeProvider === 'groq'
+                    ? 'border-cyan-500/50 bg-cyan-500/5'
+                    : 'border-border hover:border-muted-foreground/30'
+                }`}
+                onClick={() => onSetActiveProvider('groq')}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                      settings.activeProvider === 'groq' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-muted'
+                    }`}>
+                      <Zap className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-semibold">Groq</span>
+                      {settings.activeProvider === 'groq' && hasAnyKey && settings.groqApiKey && (
+                        <span className="ml-2 text-[10px] text-cyan-400 font-medium bg-cyan-500/10 px-1.5 py-0.5 rounded">ACTIVE</span>
                       )}
-                      {p === 'groq' ? 'Groq' : 'Gemini'}
-                      {hasKey && (
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            p === 'groq' ? 'bg-cyan-400' : 'bg-blue-400'
-                          }`}
-                        />
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-
-              {/* Active Provider Key */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor={`key-${active}`} className="text-sm font-medium">
-                    {active === 'groq' ? 'Groq' : 'Gemini'} API Key
-                  </Label>
-                  <KeyStatusBadge status={active === 'groq' ? groqStatus : geminiStatus} />
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    id={`key-${active}`}
-                    name={`${active}ApiKey`}
-                    type="password"
-                    placeholder={active === 'groq' ? 'gsk_...' : 'AIza...'}
-                    value={activeKey}
-                    onChange={(e) => handleKeyChange(active, e.target.value)}
-                    className="font-mono text-xs flex-1"
-                    autoComplete="off"
-                    spellCheck={false}
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleVerify(active)}
-                    disabled={!activeKey || verifying === active}
-                    className="shrink-0 px-3"
-                  >
-                    {verifying === active ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      'Verify'
-                    )}
-                  </Button>
-                </div>
-                <a
-                  href={
-                    active === 'groq'
-                      ? 'https://console.groq.com/keys'
-                      : 'https://aistudio.google.com/apikey'
-                  }
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[11px] text-primary hover:underline inline-flex items-center gap-1"
-                >
-                  Get free key{' '}
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </div>
-
-              {/* Other Provider Key (collapsed) */}
-              <details className="group">
-                <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors flex items-center gap-1.5">
-                  <span className="group-open:rotate-90 transition-transform text-[10px]">
-                    ▶
-                  </span>
-                  {otherKey ? 'Second key added' : 'Add second key (optional)'}
-                </summary>
-                <div className="mt-3 space-y-3 pl-3 border-l-2 border-muted">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor={`key-${otherProvider}`} className="text-xs font-medium">
-                      {otherProvider === 'groq' ? 'Groq' : 'Gemini'} API Key
-                    </Label>
-                    <KeyStatusBadge
-                      status={otherProvider === 'groq' ? groqStatus : geminiStatus}
-                    />
+                    </div>
                   </div>
+                  <StatusDot status={groqStatus} />
+                </div>
+                <div className="space-y-2">
                   <div className="flex gap-2">
                     <Input
-                      id={`key-${otherProvider}`}
-                      name={`${otherProvider}ApiKey`}
+                      id="groq-key"
+                      name="groqApiKey"
                       type="password"
-                      placeholder={otherProvider === 'groq' ? 'gsk_...' : 'AIza...'}
-                      value={otherKey}
-                      onChange={(e) => handleKeyChange(otherProvider, e.target.value)}
+                      placeholder="gsk_..."
+                      value={settings.groqApiKey}
+                      onChange={(e) => {
+                        onUpdateKey('groq', e.target.value)
+                        setGroqStatus(null)
+                      }}
+                      onClick={(e) => e.stopPropagation()}
                       className="font-mono text-xs flex-1"
                       autoComplete="off"
                       spellCheck={false}
@@ -323,73 +144,122 @@ export function AIHub({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleVerify(otherProvider)}
-                      disabled={!otherKey || verifying === otherProvider}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleVerify('groq')
+                      }}
+                      disabled={!settings.groqApiKey || verifying === 'groq'}
                       className="shrink-0 px-3"
                     >
-                      {verifying === otherProvider ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        'Verify'
-                      )}
+                      {verifying === 'groq' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Verify'}
                     </Button>
                   </div>
                   <a
-                    href={
-                      otherProvider === 'groq'
-                        ? 'https://console.groq.com/keys'
-                        : 'https://aistudio.google.com/apikey'
-                    }
+                    href="https://console.groq.com/keys"
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
                     className="text-[11px] text-primary hover:underline inline-flex items-center gap-1"
                   >
-                    Get free key{' '}
-                    <ExternalLink className="h-3 w-3" />
+                    Get free key <ExternalLink className="h-3 w-3" />
                   </a>
                 </div>
-              </details>
+              </div>
 
-              {/* Status bar */}
-              {activeKey && (
-                <div
-                  className={`rounded-xl p-3 text-sm flex items-center gap-2 ${
-                    syncStatus === 'error'
-                      ? 'bg-amber-500/10 text-amber-500'
-                      : 'bg-green-500/10 text-green-500'
-                  }`}
-                >
-                  {syncStatus === 'error' ? (
-                    <>
-                      <CloudOff className="h-4 w-4 shrink-0" />
-                      <span className="flex-1">
-                        Saved locally. Cloud sync failed:{' '}
-                        {syncError || 'check Firestore rules'}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={onRetrySync}
-                        className="h-6 px-2 text-xs"
-                      >
-                        <RotateCcw className="h-3 w-3" />
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Check className="h-4 w-4 shrink-0" />
-                      <span>
-                        Using {active === 'groq' ? 'Groq' : 'Gemini'}
-                        {syncStatus === 'synced' ? ' · synced to cloud' : ' · saved locally'}
-                      </span>
-                    </>
-                  )}
+              {/* Gemini Card */}
+              <div
+                className={`rounded-xl border-2 p-4 cursor-pointer transition-all ${
+                  settings.activeProvider === 'gemini'
+                    ? 'border-blue-500/50 bg-blue-500/5'
+                    : 'border-border hover:border-muted-foreground/30'
+                }`}
+                onClick={() => onSetActiveProvider('gemini')}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                      settings.activeProvider === 'gemini' ? 'bg-blue-500/20 text-blue-400' : 'bg-muted'
+                    }`}>
+                      <Sparkles className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-semibold">Gemini</span>
+                      {settings.activeProvider === 'gemini' && hasAnyKey && settings.geminiApiKey && (
+                        <span className="ml-2 text-[10px] text-blue-400 font-medium bg-blue-500/10 px-1.5 py-0.5 rounded">ACTIVE</span>
+                      )}
+                    </div>
+                  </div>
+                  <StatusDot status={geminiStatus} />
                 </div>
-              )}
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      id="gemini-key"
+                      name="geminiApiKey"
+                      type="password"
+                      placeholder="AIza..."
+                      value={settings.geminiApiKey}
+                      onChange={(e) => {
+                        onUpdateKey('gemini', e.target.value)
+                        setGeminiStatus(null)
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="font-mono text-xs flex-1"
+                      autoComplete="off"
+                      spellCheck={false}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleVerify('gemini')
+                      }}
+                      disabled={!settings.geminiApiKey || verifying === 'gemini'}
+                      className="shrink-0 px-3"
+                    >
+                      {verifying === 'gemini' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Verify'}
+                    </Button>
+                  </div>
+                  <a
+                    href="https://aistudio.google.com/apikey"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-[11px] text-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    Get free key <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              </div>
 
-              <p className="text-[10px] text-muted-foreground text-center leading-relaxed">
-                Keys auto-save as you type. Stored in your browser and synced to your Firebase account.
-              </p>
+              {/* How it works */}
+              <div className="rounded-xl bg-muted/50 p-3 text-[11px] text-muted-foreground space-y-1">
+                <p className="font-medium text-foreground">How it works</p>
+                <p>• Pick <strong>Groq</strong> (fast, free) or <strong>Gemini</strong> (Google AI)</p>
+                <p>• Enter one key — that's enough to play</p>
+                <p>• Click a card to set it as your active provider</p>
+              </div>
+
+              {/* Save Button */}
+              <Button
+                onClick={onSave}
+                disabled={saving || !hasAnyKey}
+                className="w-full"
+                size="lg"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {saving ? 'Saving...' : 'Save Settings'}
+              </Button>
+
+              {/* Security note */}
+              <div className="flex items-start gap-2 rounded-xl bg-green-500/5 border border-green-500/20 p-3">
+                <Shield className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+                <div className="text-[11px] text-green-600 dark:text-green-400">
+                  <p className="font-medium">Encrypted & secure</p>
+                  <p>Keys are encrypted (AES-256) before saving. Only you can access them via your Google account.</p>
+                </div>
+              </div>
             </div>
           )}
         </div>

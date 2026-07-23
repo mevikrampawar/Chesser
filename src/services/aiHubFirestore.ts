@@ -1,10 +1,6 @@
-import {
-  doc,
-  getDoc,
-  setDoc,
-  serverTimestamp,
-} from 'firebase/firestore'
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from './firebase'
+import { encryptApiKey, decryptApiKey } from './crypto'
 
 export interface AIHubSettings {
   groqApiKey: string
@@ -12,10 +8,10 @@ export interface AIHubSettings {
   activeProvider: 'groq' | 'gemini'
 }
 
-export interface SyncResult {
-  localStorage: boolean
-  firestore: boolean
-  firestoreError: string | null
+export interface SaveResult {
+  ok: boolean
+  source: 'local' | 'cloud'
+  error: string | null
 }
 
 const DEFAULT_SETTINGS: AIHubSettings = {
@@ -41,68 +37,74 @@ function loadLocal(): AIHubSettings {
   }
 }
 
-function saveLocal(settings: AIHubSettings): boolean {
-  try {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(settings))
-    return true
-  } catch {
-    return false
-  }
+function saveLocal(settings: AIHubSettings): void {
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(settings))
 }
 
-export async function getAIHubSettings(userId: string | null): Promise<AIHubSettings> {
+export async function loadSettings(userId: string | null): Promise<AIHubSettings> {
   const local = loadLocal()
 
-  if (userId && typeof userId === 'string') {
-    try {
-      const snap = await getDoc(doc(db, 'users', userId, 'settings', 'aiHub'))
-      if (snap.exists()) {
-        const data = snap.data()
-        const remote: AIHubSettings = {
-          groqApiKey: String(data.groqApiKey || ''),
-          geminiApiKey: String(data.geminiApiKey || ''),
-          activeProvider: (data.activeProvider as 'groq' | 'gemini') || 'groq',
-        }
-        if (remote.groqApiKey || remote.geminiApiKey) {
-          saveLocal(remote)
-          return remote
-        }
+  if (!userId) return local
+
+  try {
+    const snap = await getDoc(doc(db, 'users', userId, 'settings', 'aiHub'))
+    if (!snap.exists()) return local
+
+    const data = snap.data()
+    const groqKey = data.groqKeyEnc
+      ? await decryptApiKey(userId, String(data.groqKeyEnc))
+      : String(data.groqApiKey || '')
+    const geminiKey = data.geminiKeyEnc
+      ? await decryptApiKey(userId, String(data.geminiKeyEnc))
+      : String(data.geminiApiKey || '')
+
+    if (groqKey || geminiKey) {
+      const remote: AIHubSettings = {
+        groqApiKey: groqKey,
+        geminiApiKey: geminiKey,
+        activeProvider: (data.activeProvider as 'groq' | 'gemini') || 'groq',
       }
-    } catch { /* fall through to local */ }
+      saveLocal(remote)
+      return remote
+    }
+  } catch {
+    // Firestore read failed — use local
   }
 
   return local
 }
 
-export async function saveAIHubSettings(
+export async function saveSettings(
   userId: string | null,
   settings: AIHubSettings,
-): Promise<SyncResult> {
-  const localOk = saveLocal(settings)
-  if (!localOk) {
-    throw new Error('Failed to save to browser storage')
+): Promise<SaveResult> {
+  saveLocal(settings)
+
+  if (!userId) {
+    return { ok: true, source: 'local', error: null }
   }
 
-  const result: SyncResult = {
-    localStorage: true,
-    firestore: false,
-    firestoreError: null,
-  }
+  try {
+    const groqEnc = settings.groqApiKey
+      ? await encryptApiKey(userId, settings.groqApiKey)
+      : ''
+    const geminiEnc = settings.geminiApiKey
+      ? await encryptApiKey(userId, settings.geminiApiKey)
+      : ''
 
-  if (userId && typeof userId === 'string') {
-    try {
-      await setDoc(doc(db, 'users', userId, 'settings', 'aiHub'), {
-        groqApiKey: settings.groqApiKey.slice(0, 200),
-        geminiApiKey: settings.geminiApiKey.slice(0, 200),
-        activeProvider: settings.activeProvider,
-        lastUpdated: serverTimestamp(),
-      })
-      result.firestore = true
-    } catch (err) {
-      result.firestoreError =
-        err instanceof Error ? err.message : 'Firestore write failed — check security rules'
+    await setDoc(doc(db, 'users', userId, 'settings', 'aiHub'), {
+      groqKeyEnc: groqEnc,
+      geminiKeyEnc: geminiEnc,
+      activeProvider: settings.activeProvider,
+      lastUpdated: serverTimestamp(),
+    })
+
+    return { ok: true, source: 'cloud', error: null }
+  } catch (err) {
+    return {
+      ok: true,
+      source: 'local',
+      error: err instanceof Error ? err.message : 'Cloud save failed — check Firestore rules',
     }
   }
-
-  return result
 }

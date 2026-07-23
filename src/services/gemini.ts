@@ -1,4 +1,5 @@
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
+const GEMINI_API_URL =
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
 
 export async function geminiChatCompletion(
   apiKey: string,
@@ -27,15 +28,21 @@ export async function geminiChatCompletion(
     body.systemInstruction = { parts: [{ text: systemMsg.content }] }
   }
 
-  const res = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+  const res = await fetch(GEMINI_API_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
+    },
     body: JSON.stringify(body),
   })
 
   if (!res.ok) {
     if (res.status === 400) throw new Error('Invalid Gemini API key')
-    if (res.status === 403) throw new Error('Gemini API key not authorized. Enable the Generative Language API in Google Cloud Console.')
+    if (res.status === 403)
+      throw new Error(
+        'Gemini API not enabled. Go to console.cloud.google.com → APIs → Enable "Generative Language API"',
+      )
     if (res.status === 429) throw new Error('Rate limited — try again in a moment')
     throw new Error(`Gemini API error ${res.status}`)
   }
@@ -48,9 +55,12 @@ export type GeminiKeyStatus = 'valid' | 'invalid' | 'rate_limited' | 'disabled'
 
 export async function testGeminiApiKey(key: string): Promise<GeminiKeyStatus> {
   try {
-    const res = await fetch(`${GEMINI_API_URL}?key=${key}`, {
+    const res = await fetch(GEMINI_API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': key,
+      },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: 'Say ok' }] }],
         generationConfig: { maxOutputTokens: 10 },

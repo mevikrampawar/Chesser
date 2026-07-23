@@ -479,13 +479,10 @@ export default function App() {
         onOpenChange={setAiHubOpen}
         settings={aiHub.settings}
         loading={aiHub.loading}
-        syncStatus={aiHub.syncStatus}
-        syncError={aiHub.syncError}
+        saving={aiHub.saving}
         onSetActiveProvider={aiHub.setActiveProvider}
         onUpdateKey={aiHub.updateKey}
-        onVerify={aiHub.handleVerify}
-        verifying={aiHub.verifying}
-        onRetrySync={aiHub.retrySync}
+        onSave={aiHub.save}
       />
 
       {/* Toast notifications */}

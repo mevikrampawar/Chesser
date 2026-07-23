@@ -1,37 +1,26 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import {
-  getAIHubSettings,
-  saveAIHubSettings,
-  type AIHubSettings,
-  type SyncResult,
-} from '@/services/aiHubFirestore'
+import { loadSettings, saveSettings, type AIHubSettings } from '@/services/aiHubFirestore'
 import type { Provider } from '@/services/llm'
+import { toast } from '@/hooks/useToast'
 
-const DEFAULT_SETTINGS: AIHubSettings = {
+const DEFAULT: AIHubSettings = {
   groqApiKey: '',
   geminiApiKey: '',
   activeProvider: 'groq',
 }
 
 export function useAIHub(userId: string | null) {
-  const [settings, setSettings] = useState<AIHubSettings>(DEFAULT_SETTINGS)
+  const [settings, setSettings] = useState<AIHubSettings>(DEFAULT)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'local_only' | 'error'>('idle')
-  const [syncError, setSyncError] = useState<string | null>(null)
-  const [verifying, setVerifying] = useState<Provider | null>(null)
   const loadedRef = useRef(false)
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const lastSavedRef = useRef<string>('')
 
-  // Load on mount
   useEffect(() => {
     if (loadedRef.current) return
     setLoading(true)
-    getAIHubSettings(userId)
+    loadSettings(userId)
       .then((data) => {
         setSettings(data)
-        lastSavedRef.current = JSON.stringify(data)
         loadedRef.current = true
       })
       .catch(() => {
@@ -39,41 +28,6 @@ export function useAIHub(userId: string | null) {
       })
       .finally(() => setLoading(false))
   }, [userId])
-
-  // Auto-save with debounce whenever settings change
-  useEffect(() => {
-    const serialized = JSON.stringify(settings)
-    if (serialized === lastSavedRef.current) return
-
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = setTimeout(async () => {
-      setSaving(true)
-      setSyncStatus('syncing')
-      try {
-        const result: SyncResult = await saveAIHubSettings(userId, settings)
-        lastSavedRef.current = serialized
-        if (result.firestore) {
-          setSyncStatus('synced')
-          setSyncError(null)
-        } else if (result.firestoreError) {
-          setSyncStatus('error')
-          setSyncError(result.firestoreError)
-        } else {
-          setSyncStatus('local_only')
-          setSyncError(null)
-        }
-      } catch (err) {
-        setSyncStatus('error')
-        setSyncError(err instanceof Error ? err.message : 'Save failed')
-      } finally {
-        setSaving(false)
-      }
-    }, 500)
-
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    }
-  }, [userId, settings.groqApiKey, settings.geminiApiKey, settings.activeProvider])
 
   const updateKey = useCallback((provider: Provider, key: string) => {
     setSettings((prev) => ({
@@ -87,33 +41,46 @@ export function useAIHub(userId: string | null) {
     setSettings((prev) => ({ ...prev, activeProvider: provider }))
   }, [])
 
-  const handleVerify = useCallback((provider: Provider) => {
-    // Just manages the verifying state — actual verification happens in AIHub
-    setVerifying(provider)
-  }, [])
+  const save = useCallback(async () => {
+    if (!settings.groqApiKey && !settings.geminiApiKey) {
+      toast({
+        title: 'No key to save',
+        description: 'Enter at least one API key first',
+        variant: 'destructive',
+      })
+      return
+    }
 
-  const retrySync = useCallback(async () => {
     setSaving(true)
-    setSyncStatus('syncing')
     try {
-      const result = await saveAIHubSettings(userId, settings)
-      if (result.firestore) {
-        setSyncStatus('synced')
-        setSyncError(null)
-      } else if (result.firestoreError) {
-        setSyncStatus('error')
-        setSyncError(result.firestoreError)
+      const result = await saveSettings(userId, settings)
+      if (result.error) {
+        toast({
+          title: 'Saved locally',
+          description: result.error,
+          variant: 'destructive',
+        })
       } else {
-        setSyncStatus('local_only')
-        setSyncError(null)
+        const providerName = settings.activeProvider === 'gemini' ? 'Gemini' : 'Groq'
+        toast({
+          title: 'Settings saved',
+          description:
+            result.source === 'cloud'
+              ? `${providerName} key saved to cloud`
+              : `${providerName} key saved locally`,
+          variant: 'success',
+        })
       }
     } catch (err) {
-      setSyncStatus('error')
-      setSyncError(err instanceof Error ? err.message : 'Sync failed')
+      toast({
+        title: 'Save failed',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      })
     } finally {
       setSaving(false)
     }
-  }, [userId, settings.groqApiKey, settings.geminiApiKey, settings.activeProvider])
+  }, [userId, settings])
 
   const getActiveApiKey = useCallback((): string => {
     if (settings.activeProvider === 'gemini') {
@@ -137,13 +104,9 @@ export function useAIHub(userId: string | null) {
     settings,
     loading,
     saving,
-    syncStatus,
-    syncError,
-    verifying,
     updateKey,
     setActiveProvider,
-    handleVerify,
-    retrySync,
+    save,
     getActiveApiKey,
     getActiveProvider,
     hasActiveKey,
