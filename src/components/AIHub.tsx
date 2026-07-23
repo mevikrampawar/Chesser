@@ -20,7 +20,6 @@ interface Props {
   settings: AIHubSettings
   loading: boolean
   saving: boolean
-  error: string | null
   onUpdateGroqKey: (key: string) => void
   onUpdateGeminiKey: (key: string) => void
   onSetActiveProvider: (provider: Provider) => void
@@ -48,7 +47,6 @@ export function AIHub({
   settings,
   loading,
   saving,
-  error,
   onUpdateGroqKey,
   onUpdateGeminiKey,
   onSetActiveProvider,
@@ -242,20 +240,13 @@ export function AIHub({
                 </div>
               </div>
 
-              {error && (
-                <div className="text-sm text-destructive bg-destructive/10 rounded-lg p-3">
-                  {error}
-                </div>
-              )}
-
               <Button onClick={onSave} disabled={saving} className="w-full" size="lg">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 {saving ? 'Saving...' : 'Save Settings'}
               </Button>
 
               <p className="text-[10px] text-muted-foreground text-center leading-relaxed">
-                Keys are stored in your Firebase Firestore, protected by security rules.
-                Only you can access them.
+                Keys saved locally in your browser. If logged in, also synced to your account.
               </p>
             </div>
           )}

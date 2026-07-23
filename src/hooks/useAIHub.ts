@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getAIHubSettings, saveAIHubSettings, type AIHubSettings } from '@/services/aiHubFirestore'
 import type { Provider } from '@/services/llm'
+import { toast } from '@/hooks/useToast'
 
 const DEFAULT_SETTINGS: AIHubSettings = {
   groqApiKey: '',
@@ -12,18 +13,21 @@ export function useAIHub(userId: string | null) {
   const [settings, setSettings] = useState<AIHubSettings>(DEFAULT_SETTINGS)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const loadedRef = useRef(false)
 
+  // Load settings on mount (localStorage is instant, Firestore is best-effort)
   useEffect(() => {
-    if (!userId || loadedRef.current) return
+    if (loadedRef.current) return
     setLoading(true)
     getAIHubSettings(userId)
       .then((data) => {
         setSettings(data)
         loadedRef.current = true
       })
-      .catch(() => setError('Failed to load AI settings'))
+      .catch(() => {
+        // Even if load fails, keep defaults — user can still save
+        loadedRef.current = true
+      })
       .finally(() => setLoading(false))
   }, [userId])
 
@@ -40,20 +44,25 @@ export function useAIHub(userId: string | null) {
   }, [])
 
   const save = useCallback(async () => {
-    if (!userId) return
     setSaving(true)
-    setError(null)
     try {
+      // Save whatever keys exist (even if only one, even if both empty)
       await saveAIHubSettings(userId, settings)
+      toast({
+        title: 'Settings saved',
+        description: settings.groqApiKey || settings.geminiApiKey
+          ? `Using ${getActiveProviderName(settings)}`
+          : 'No API keys saved yet',
+        variant: 'success',
+      })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to save settings'
-      setError(msg)
+      toast({ title: 'Save failed', description: msg, variant: 'destructive' })
     } finally {
       setSaving(false)
     }
   }, [userId, settings.groqApiKey, settings.geminiApiKey, settings.activeProvider])
 
-  // Returns the best available key: preferred provider first, then fallback
   const getActiveApiKey = useCallback((): string => {
     if (settings.activeProvider === 'gemini') {
       return settings.geminiApiKey || settings.groqApiKey
@@ -61,7 +70,6 @@ export function useAIHub(userId: string | null) {
     return settings.groqApiKey || settings.geminiApiKey
   }, [settings.activeProvider, settings.geminiApiKey, settings.groqApiKey])
 
-  // Returns which provider is actually being used
   const getActiveProvider = useCallback((): Provider => {
     if (settings.activeProvider === 'gemini') {
       return settings.geminiApiKey ? 'gemini' : (settings.groqApiKey ? 'groq' : 'groq')
@@ -69,7 +77,6 @@ export function useAIHub(userId: string | null) {
     return settings.groqApiKey ? 'groq' : (settings.geminiApiKey ? 'gemini' : 'groq')
   }, [settings.activeProvider, settings.geminiApiKey, settings.groqApiKey])
 
-  // Works if ANY key is available
   const hasActiveKey = useCallback((): boolean => {
     return !!(settings.groqApiKey || settings.geminiApiKey)
   }, [settings.groqApiKey, settings.geminiApiKey])
@@ -78,7 +85,6 @@ export function useAIHub(userId: string | null) {
     settings,
     loading,
     saving,
-    error,
     updateGroqKey,
     updateGeminiKey,
     setActiveProvider,
@@ -87,4 +93,11 @@ export function useAIHub(userId: string | null) {
     getActiveProvider,
     hasActiveKey,
   }
+}
+
+function getActiveProviderName(s: AIHubSettings): string {
+  if (s.activeProvider === 'gemini') {
+    return s.geminiApiKey ? 'Gemini' : 'Groq (fallback)'
+  }
+  return s.groqApiKey ? 'Groq' : 'Gemini (fallback)'
 }

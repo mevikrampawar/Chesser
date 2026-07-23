@@ -480,7 +480,6 @@ export default function App() {
         settings={aiHub.settings}
         loading={aiHub.loading}
         saving={aiHub.saving}
-        error={aiHub.error}
         onUpdateGroqKey={aiHub.updateGroqKey}
         onUpdateGeminiKey={aiHub.updateGeminiKey}
         onSetActiveProvider={aiHub.setActiveProvider}
