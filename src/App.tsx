@@ -12,7 +12,7 @@ import { useOpeningAnalysis } from './hooks/useOpeningStats'
 import { useAuth } from './hooks/useAuth'
 import { useTheme } from './hooks/useTheme'
 import { useAIHub } from './hooks/useAIHub'
-import { Settings, LogOut } from 'lucide-react'
+import { Settings, LogOut, Key } from 'lucide-react'
 
 export default function App() {
   const { user, loading: authLoading, error: authError, signInWithGoogle, logout } = useAuth()
@@ -38,22 +38,31 @@ export default function App() {
 
   const prevMoveCount = useRef(0)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const prevProviderRef = useRef('')
+  const prevKeyRef = useRef('')
+
+  const hasKey = aiHub.hasActiveKey()
+  const activeProvider = aiHub.settings.activeProvider
+  const activeApiKey = aiHub.getActiveApiKey()
 
   useEffect(() => {
-    const hasKey = aiHub.hasActiveKey()
-    if (hasKey && moveHistorySan.length > 0 && moveHistorySan.length !== prevMoveCount.current) {
+    const keyChanged = activeProvider !== prevProviderRef.current || activeApiKey !== prevKeyRef.current
+    prevProviderRef.current = activeProvider
+    prevKeyRef.current = activeApiKey
+
+    if (hasKey && moveHistorySan.length > 0 && (moveHistorySan.length !== prevMoveCount.current || keyChanged)) {
       prevMoveCount.current = moveHistorySan.length
       if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(
-        () => analyze(moveHistorySan, aiHub.settings.activeProvider, aiHub.getActiveApiKey()),
-        600,
-      )
+      debounceRef.current = setTimeout(() => analyze(moveHistorySan, activeProvider, activeApiKey), 600)
     }
-  }, [moveHistorySan, analyze, aiHub.settings.activeProvider, aiHub.getActiveApiKey, aiHub.hasActiveKey])
+  }, [moveHistorySan, hasKey, activeProvider, activeApiKey, analyze])
 
   const handleMove = useCallback(
-    (source: string, target: string) => makeMove(source, target),
-    [makeMove],
+    (source: string, target: string) => {
+      if (!hasKey) return false
+      return makeMove(source, target)
+    },
+    [hasKey, makeMove],
   )
 
   const handleReset = useCallback(() => {
@@ -161,7 +170,7 @@ export default function App() {
 
               <button
                 onClick={() => setAiHubOpen(true)}
-                className={`p-2 rounded-lg transition-all ${
+                className={`p-2 rounded-lg transition-all relative ${
                   isDark
                     ? 'bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10'
                     : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200'
@@ -169,6 +178,9 @@ export default function App() {
                 title="AI Hub"
               >
                 <Settings className="h-4 w-4" />
+                {!hasKey && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse" />
+                )}
               </button>
 
               {user.photoURL && (
@@ -192,22 +204,38 @@ export default function App() {
             </div>
           </header>
 
-          {/* No API key warning */}
-          {!aiHub.hasActiveKey() && (
-            <div className={`mb-4 rounded-xl p-3 sm:p-4 border ${
+          {/* No API key - prominent CTA */}
+          {!hasKey && (
+            <div className={`mb-4 sm:mb-6 rounded-2xl p-4 sm:p-6 border-2 border-dashed ${
               isDark
-                ? 'bg-amber-500/10 border-amber-500/20 text-amber-300'
-                : 'bg-amber-50 border-amber-200 text-amber-700'
+                ? 'border-amber-500/30 bg-amber-500/5'
+                : 'border-amber-300 bg-amber-50'
             }`}>
-              <div className="flex items-center justify-between">
-                <p className="text-xs sm:text-sm">
-                  Add an API key to start analyzing openings.
-                </p>
+              <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 text-center sm:text-left">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+                  isDark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-600'
+                }`}>
+                  <Key className="h-6 w-6" />
+                </div>
+                <div className="flex-1">
+                  <h3 className={`text-sm sm:text-base font-semibold mb-1 ${
+                    isDark ? 'text-amber-300' : 'text-amber-800'
+                  }`}>
+                    Add an API key to start
+                  </h3>
+                  <p className={`text-xs sm:text-sm ${isDark ? 'text-amber-400/70' : 'text-amber-600'}`}>
+                    Free Groq or Gemini key needed to analyze openings. Takes 30 seconds.
+                  </p>
+                </div>
                 <button
                   onClick={() => setAiHubOpen(true)}
-                  className="text-xs font-medium underline ml-2 shrink-0"
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                    isDark
+                      ? 'bg-amber-500 text-black hover:bg-amber-400'
+                      : 'bg-amber-500 text-white hover:bg-amber-600'
+                  }`}
                 >
-                  Open AI Hub
+                  Add API Key
                 </button>
               </div>
             </div>
@@ -217,7 +245,20 @@ export default function App() {
           <div className="lg:hidden">
             {mobileTab === 'board' && (
               <div className="space-y-3">
-                <ChessBoard fen={fen} onMove={handleMove} isGameOver={isGameOver} theme={theme} />
+                <div className="relative">
+                  <ChessBoard fen={fen} onMove={handleMove} isGameOver={isGameOver} theme={theme} />
+                  {!hasKey && (
+                    <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40 backdrop-blur-sm z-10">
+                      <button
+                        onClick={() => setAiHubOpen(true)}
+                        className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-500 text-black font-semibold text-sm hover:bg-amber-400 transition-colors"
+                      >
+                        <Key className="h-4 w-4" />
+                        Add API Key to Play
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <div className={`rounded-xl p-3 border ${
                   isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-white border-gray-200 shadow-sm'
                 }`}>
@@ -231,7 +272,6 @@ export default function App() {
                   </div>
                   <MoveHistory movesSan={moveHistorySan} theme={theme} />
                 </div>
-                {/* Mini opening info */}
                 {openingData && (
                   <div className={`rounded-xl p-3 border ${
                     isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-white border-gray-200 shadow-sm'
@@ -319,20 +359,29 @@ export default function App() {
 
                 <button
                   onClick={() => setAiHubOpen(true)}
-                  className={`w-full rounded-xl p-4 border text-left ${
-                    isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-white border-gray-200 shadow-sm'
+                  className={`w-full rounded-xl p-4 border text-left transition-all ${
+                    isDark
+                      ? hasKey
+                        ? 'bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04]'
+                        : 'bg-amber-500/5 border-amber-500/20 hover:bg-amber-500/10'
+                      : hasKey
+                        ? 'bg-white border-gray-200 shadow-sm hover:bg-gray-50'
+                        : 'bg-amber-50 border-amber-200 hover:bg-amber-100'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                        AI Hub
-                      </h3>
-                      <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                        Configure AI providers and API keys
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <Settings className={`h-5 w-5 ${hasKey ? (isDark ? 'text-gray-400' : 'text-gray-500') : 'text-amber-500'}`} />
+                      <div>
+                        <h3 className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                          AI Hub
+                        </h3>
+                        <p className={`text-xs ${hasKey ? (isDark ? 'text-gray-500' : 'text-gray-400') : 'text-amber-500'}`}>
+                          {hasKey ? `Using ${activeProvider === 'gemini' ? 'Gemini' : 'Groq'}` : 'Add API key to start'}
+                        </p>
+                      </div>
                     </div>
-                    <Settings className={`h-4 w-4 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
+                    {!hasKey && <span className="text-amber-500 text-xs font-medium">Setup →</span>}
                   </div>
                 </button>
               </div>
@@ -340,7 +389,7 @@ export default function App() {
 
             {/* Bottom Tab Bar */}
             <div className={`fixed bottom-0 left-0 right-0 border-t z-40 ${
-              isDark ? 'bg-[#0a0a0f] border-white/10' : 'bg-white border-gray-200'
+              isDark ? 'bg-[#0a0a0f]/95 backdrop-blur-lg border-white/10' : 'bg-white/95 backdrop-blur-lg border-gray-200'
             }`}>
               <div className="flex items-center justify-around py-2 max-w-lg mx-auto">
                 {([
@@ -351,14 +400,14 @@ export default function App() {
                   <button
                     key={tab.id}
                     onClick={() => setMobileTab(tab.id)}
-                    className={`flex flex-col items-center gap-0.5 px-4 py-1 transition-colors ${
+                    className={`flex flex-col items-center gap-0.5 px-4 py-1 transition-all ${
                       mobileTab === tab.id
-                        ? isDark ? 'text-cyan-400' : 'text-blue-600'
+                        ? isDark ? 'text-cyan-400 scale-110' : 'text-blue-600 scale-110'
                         : isDark ? 'text-gray-500' : 'text-gray-400'
                     }`}
                   >
                     <span className="text-lg">{tab.icon}</span>
-                    <span className="text-[10px]">{tab.label}</span>
+                    <span className="text-[10px] font-medium">{tab.label}</span>
                   </button>
                 ))}
               </div>
@@ -368,7 +417,20 @@ export default function App() {
           {/* Desktop: Side-by-side layout */}
           <div className="hidden lg:grid lg:grid-cols-3 gap-4 sm:gap-6">
             <div className="lg:col-span-2 space-y-3 sm:space-y-4">
-              <ChessBoard fen={fen} onMove={handleMove} isGameOver={isGameOver} theme={theme} />
+              <div className="relative">
+                <ChessBoard fen={fen} onMove={handleMove} isGameOver={isGameOver} theme={theme} />
+                {!hasKey && (
+                  <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40 backdrop-blur-sm z-10">
+                    <button
+                      onClick={() => setAiHubOpen(true)}
+                      className="flex items-center gap-2 px-6 py-3 rounded-xl bg-amber-500 text-black font-semibold hover:bg-amber-400 transition-colors"
+                    >
+                      <Key className="h-5 w-5" />
+                      Add API Key to Play
+                    </button>
+                  </div>
+                )}
+              </div>
               <div className={`rounded-xl p-3 sm:p-4 border transition-colors ${
                 isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-white border-gray-200 shadow-sm'
               }`}>

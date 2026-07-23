@@ -1,35 +1,41 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { getAIHubSettings, saveAIHubSettings, type AIHubSettings } from '@/services/aiHubFirestore'
 import type { Provider } from '@/services/llm'
 
+const DEFAULT_SETTINGS: AIHubSettings = {
+  groqApiKey: '',
+  geminiApiKey: '',
+  activeProvider: 'groq',
+}
+
 export function useAIHub(userId: string | null) {
-  const [settings, setSettings] = useState<AIHubSettings>({
-    groqApiKey: '',
-    geminiApiKey: '',
-    activeProvider: 'groq',
-  })
+  const [settings, setSettings] = useState<AIHubSettings>(DEFAULT_SETTINGS)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const loadedRef = useRef(false)
 
   useEffect(() => {
-    if (!userId) return
+    if (!userId || loadedRef.current) return
     setLoading(true)
     getAIHubSettings(userId)
-      .then(setSettings)
+      .then((data) => {
+        setSettings(data)
+        loadedRef.current = true
+      })
       .catch(() => setError('Failed to load AI settings'))
       .finally(() => setLoading(false))
   }, [userId])
 
-  const updateGroqKey = useCallback(async (key: string) => {
+  const updateGroqKey = useCallback((key: string) => {
     setSettings((prev) => ({ ...prev, groqApiKey: key }))
   }, [])
 
-  const updateGeminiKey = useCallback(async (key: string) => {
+  const updateGeminiKey = useCallback((key: string) => {
     setSettings((prev) => ({ ...prev, geminiApiKey: key }))
   }, [])
 
-  const setActiveProvider = useCallback(async (provider: Provider) => {
+  const setActiveProvider = useCallback((provider: Provider) => {
     setSettings((prev) => ({ ...prev, activeProvider: provider }))
   }, [])
 
@@ -39,16 +45,17 @@ export function useAIHub(userId: string | null) {
     setError(null)
     try {
       await saveAIHubSettings(userId, settings)
-    } catch {
-      setError('Failed to save settings')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to save settings'
+      setError(msg)
     } finally {
       setSaving(false)
     }
-  }, [userId, settings])
+  }, [userId, settings.groqApiKey, settings.geminiApiKey, settings.activeProvider])
 
   const getActiveApiKey = useCallback((): string => {
     return settings.activeProvider === 'gemini' ? settings.geminiApiKey : settings.groqApiKey
-  }, [settings])
+  }, [settings.activeProvider, settings.geminiApiKey, settings.groqApiKey])
 
   const hasActiveKey = useCallback((): boolean => {
     return !!getActiveApiKey()
