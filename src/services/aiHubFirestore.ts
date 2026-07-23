@@ -12,6 +12,12 @@ export interface AIHubSettings {
   activeProvider: 'groq' | 'gemini'
 }
 
+export interface SyncResult {
+  localStorage: boolean
+  firestore: boolean
+  firestoreError: string | null
+}
+
 const DEFAULT_SETTINGS: AIHubSettings = {
   groqApiKey: '',
   geminiApiKey: '',
@@ -35,17 +41,18 @@ function loadLocal(): AIHubSettings {
   }
 }
 
-function saveLocal(settings: AIHubSettings): void {
+function saveLocal(settings: AIHubSettings): boolean {
   try {
     localStorage.setItem(LOCAL_KEY, JSON.stringify(settings))
-  } catch { /* ignore */ }
+    return true
+  } catch {
+    return false
+  }
 }
 
 export async function getAIHubSettings(userId: string | null): Promise<AIHubSettings> {
-  // Always load from localStorage first (instant, no network)
   const local = loadLocal()
 
-  // If logged in, try to merge with Firestore (Firestore wins if it has data)
   if (userId && typeof userId === 'string') {
     try {
       const snap = await getDoc(doc(db, 'users', userId, 'settings', 'aiHub'))
@@ -56,24 +63,32 @@ export async function getAIHubSettings(userId: string | null): Promise<AIHubSett
           geminiApiKey: String(data.geminiApiKey || ''),
           activeProvider: (data.activeProvider as 'groq' | 'gemini') || 'groq',
         }
-        // If remote has keys and local doesn't, use remote
-        // If both have keys, prefer remote (cloud is truth)
         if (remote.groqApiKey || remote.geminiApiKey) {
           saveLocal(remote)
           return remote
         }
       }
-    } catch { /* Firestore read failed, fall through to local */ }
+    } catch { /* fall through to local */ }
   }
 
   return local
 }
 
-export async function saveAIHubSettings(userId: string | null, settings: AIHubSettings): Promise<void> {
-  // 1. Always save to localStorage first (guaranteed to work)
-  saveLocal(settings)
+export async function saveAIHubSettings(
+  userId: string | null,
+  settings: AIHubSettings,
+): Promise<SyncResult> {
+  const localOk = saveLocal(settings)
+  if (!localOk) {
+    throw new Error('Failed to save to browser storage')
+  }
 
-  // 2. Try to sync to Firestore (best effort, won't fail if rules block it)
+  const result: SyncResult = {
+    localStorage: true,
+    firestore: false,
+    firestoreError: null,
+  }
+
   if (userId && typeof userId === 'string') {
     try {
       await setDoc(doc(db, 'users', userId, 'settings', 'aiHub'), {
@@ -82,6 +97,12 @@ export async function saveAIHubSettings(userId: string | null, settings: AIHubSe
         activeProvider: settings.activeProvider,
         lastUpdated: serverTimestamp(),
       })
-    } catch { /* Firestore write blocked by rules — localStorage already saved */ }
+      result.firestore = true
+    } catch (err) {
+      result.firestoreError =
+        err instanceof Error ? err.message : 'Firestore write failed — check security rules'
+    }
   }
+
+  return result
 }

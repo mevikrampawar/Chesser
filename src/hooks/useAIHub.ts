@@ -1,7 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { getAIHubSettings, saveAIHubSettings, type AIHubSettings } from '@/services/aiHubFirestore'
+import {
+  getAIHubSettings,
+  saveAIHubSettings,
+  type AIHubSettings,
+  type SyncResult,
+} from '@/services/aiHubFirestore'
 import type { Provider } from '@/services/llm'
-import { toast } from '@/hooks/useToast'
 
 const DEFAULT_SETTINGS: AIHubSettings = {
   groqApiKey: '',
@@ -13,51 +17,99 @@ export function useAIHub(userId: string | null) {
   const [settings, setSettings] = useState<AIHubSettings>(DEFAULT_SETTINGS)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'local_only' | 'error'>('idle')
+  const [syncError, setSyncError] = useState<string | null>(null)
+  const [verifying, setVerifying] = useState<Provider | null>(null)
   const loadedRef = useRef(false)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const lastSavedRef = useRef<string>('')
 
-  // Load settings on mount (localStorage is instant, Firestore is best-effort)
+  // Load on mount
   useEffect(() => {
     if (loadedRef.current) return
     setLoading(true)
     getAIHubSettings(userId)
       .then((data) => {
         setSettings(data)
+        lastSavedRef.current = JSON.stringify(data)
         loadedRef.current = true
       })
       .catch(() => {
-        // Even if load fails, keep defaults — user can still save
         loadedRef.current = true
       })
       .finally(() => setLoading(false))
   }, [userId])
 
-  const updateGroqKey = useCallback((key: string) => {
-    setSettings((prev) => ({ ...prev, groqApiKey: key }))
-  }, [])
+  // Auto-save with debounce whenever settings change
+  useEffect(() => {
+    const serialized = JSON.stringify(settings)
+    if (serialized === lastSavedRef.current) return
 
-  const updateGeminiKey = useCallback((key: string) => {
-    setSettings((prev) => ({ ...prev, geminiApiKey: key }))
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(async () => {
+      setSaving(true)
+      setSyncStatus('syncing')
+      try {
+        const result: SyncResult = await saveAIHubSettings(userId, settings)
+        lastSavedRef.current = serialized
+        if (result.firestore) {
+          setSyncStatus('synced')
+          setSyncError(null)
+        } else if (result.firestoreError) {
+          setSyncStatus('error')
+          setSyncError(result.firestoreError)
+        } else {
+          setSyncStatus('local_only')
+          setSyncError(null)
+        }
+      } catch (err) {
+        setSyncStatus('error')
+        setSyncError(err instanceof Error ? err.message : 'Save failed')
+      } finally {
+        setSaving(false)
+      }
+    }, 500)
+
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+  }, [userId, settings.groqApiKey, settings.geminiApiKey, settings.activeProvider])
+
+  const updateKey = useCallback((provider: Provider, key: string) => {
+    setSettings((prev) => ({
+      ...prev,
+      groqApiKey: provider === 'groq' ? key : prev.groqApiKey,
+      geminiApiKey: provider === 'gemini' ? key : prev.geminiApiKey,
+    }))
   }, [])
 
   const setActiveProvider = useCallback((provider: Provider) => {
     setSettings((prev) => ({ ...prev, activeProvider: provider }))
   }, [])
 
-  const save = useCallback(async () => {
+  const handleVerify = useCallback((provider: Provider) => {
+    // Just manages the verifying state — actual verification happens in AIHub
+    setVerifying(provider)
+  }, [])
+
+  const retrySync = useCallback(async () => {
     setSaving(true)
+    setSyncStatus('syncing')
     try {
-      // Save whatever keys exist (even if only one, even if both empty)
-      await saveAIHubSettings(userId, settings)
-      toast({
-        title: 'Settings saved',
-        description: settings.groqApiKey || settings.geminiApiKey
-          ? `Using ${getActiveProviderName(settings)}`
-          : 'No API keys saved yet',
-        variant: 'success',
-      })
+      const result = await saveAIHubSettings(userId, settings)
+      if (result.firestore) {
+        setSyncStatus('synced')
+        setSyncError(null)
+      } else if (result.firestoreError) {
+        setSyncStatus('error')
+        setSyncError(result.firestoreError)
+      } else {
+        setSyncStatus('local_only')
+        setSyncError(null)
+      }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to save settings'
-      toast({ title: 'Save failed', description: msg, variant: 'destructive' })
+      setSyncStatus('error')
+      setSyncError(err instanceof Error ? err.message : 'Sync failed')
     } finally {
       setSaving(false)
     }
@@ -72,9 +124,9 @@ export function useAIHub(userId: string | null) {
 
   const getActiveProvider = useCallback((): Provider => {
     if (settings.activeProvider === 'gemini') {
-      return settings.geminiApiKey ? 'gemini' : (settings.groqApiKey ? 'groq' : 'groq')
+      return settings.geminiApiKey ? 'gemini' : settings.groqApiKey ? 'groq' : 'groq'
     }
-    return settings.groqApiKey ? 'groq' : (settings.geminiApiKey ? 'gemini' : 'groq')
+    return settings.groqApiKey ? 'groq' : settings.geminiApiKey ? 'gemini' : 'groq'
   }, [settings.activeProvider, settings.geminiApiKey, settings.groqApiKey])
 
   const hasActiveKey = useCallback((): boolean => {
@@ -85,19 +137,15 @@ export function useAIHub(userId: string | null) {
     settings,
     loading,
     saving,
-    updateGroqKey,
-    updateGeminiKey,
+    syncStatus,
+    syncError,
+    verifying,
+    updateKey,
     setActiveProvider,
-    save,
+    handleVerify,
+    retrySync,
     getActiveApiKey,
     getActiveProvider,
     hasActiveKey,
   }
-}
-
-function getActiveProviderName(s: AIHubSettings): string {
-  if (s.activeProvider === 'gemini') {
-    return s.geminiApiKey ? 'Gemini' : 'Groq (fallback)'
-  }
-  return s.groqApiKey ? 'Groq' : 'Gemini (fallback)'
 }
